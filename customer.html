@@ -110,14 +110,14 @@
 
         <!-- 1-Tap Aonla Popular Destinations -->
         <div class="quick-chips">
-          <button class="chip-btn" onclick="selectAonlaQuick('Aonla Railway Station', 'railway station')">🚉 आंवला रेलवे स्टेशन</button>
-          <button class="chip-btn" onclick="selectAonlaQuick('Aonla Tehsil', 'tehsil')">🏛️ तहसील आंवला</button>
-          <button class="chip-btn" onclick="selectAonlaQuick('Degree College Aonla', 'college')">🎓 डिग्री कॉलेज</button>
-          <button class="chip-btn" onclick="selectAonlaQuick('Inter College Aonla', 'school')">🏫 इंटर कॉलेज</button>
-          <button class="chip-btn" onclick="selectAonlaQuick('Main Market Aonla', 'market')">🛍️ मेन मार्केट / चौक</button>
-          <button class="chip-btn" onclick="selectAonlaQuick('CHC Hospital Aonla', 'hospital')">🏥 सरकारी अस्पताल</button>
-          <button class="chip-btn" onclick="selectAonlaQuick('IFFCO Township Aonla', 'iffco')">🏭 IFFCO टाउनशिप</button>
-          <button class="chip-btn" onclick="selectAonlaQuick('Bus Stand Aonla', 'bus')">🚌 बस स्टैंड आंवला</button>
+          <button class="chip-btn" onclick="selectPreset(0)">🚉 आंवला रेलवे स्टेशन</button>
+          <button class="chip-btn" onclick="selectPreset(1)">🏛️ तहसील आंवला</button>
+          <button class="chip-btn" onclick="selectPreset(2)">🎓 डिग्री कॉलेज</button>
+          <button class="chip-btn" onclick="selectPreset(3)">🏫 इंटर कॉलेज</button>
+          <button class="chip-btn" onclick="selectPreset(4)">🛍️ मेन मार्केट / चौक</button>
+          <button class="chip-btn" onclick="selectPreset(5)">🏥 सरकारी अस्पताल</button>
+          <button class="chip-btn" onclick="selectPreset(6)">🏭 IFFCO टाउनशिप</button>
+          <button class="chip-btn" onclick="selectPreset(7)">🚌 बस स्टैंड आंवला</button>
         </div>
 
         <div class="loc-box">
@@ -185,9 +185,26 @@
     const SUPABASE_KEY = 'sb_publishable_ErHpXbTw4GTcBDdI2cERTg_B5kxVlS8';
     const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-    // ================= AONLA (BAREILLY, UP) CENTER =================
+    // ================= AONLA (BAREILLY, UP) CORE DIRECTORY =================
     const AONLA_LAT = 28.2757;
     const AONLA_LNG = 79.1603;
+
+    const AONLA_BUILT_IN_PLACES = [
+      { lat: 28.2683, lng: 79.1631, title: 'Aonla Railway Station (आंवला रेलवे स्टेशन)', subtitle: '🚉 Station Road, Aonla, Bareilly', searchBlob: 'aonla railway station railbe railbay relwe station road' },
+      { lat: 28.2768, lng: 79.1585, title: 'Aonla Tehsil (तहसील आंवला)', subtitle: '🏛️ Tehsil Compound, Aonla, Bareilly', searchBlob: 'aonla tehsil tahsil tehasil court kachahri' },
+      { lat: 28.2815, lng: 79.1562, title: 'Govt. Degree College Aonla (डिग्री कॉलेज)', subtitle: '🎓 Bareilly Road, Aonla', searchBlob: 'degree college mahavidyalaya rml govt college aonla' },
+      { lat: 28.2742, lng: 79.1618, title: 'Inter College Aonla (इंटर कॉलेज आंवला)', subtitle: '🏫 School / College, Aonla', searchBlob: 'inter college school vidyalaya aonla' },
+      { lat: 28.2755, lng: 79.1608, title: 'Main Market & Subhash Chowk Aonla (मेन मार्केट)', subtitle: '🛍️ Main Bazaar / Chowk, Aonla', searchBlob: 'main market bazaar bajar chowk chok ghantaghar aonla' },
+      { lat: 28.2779, lng: 79.1625, title: 'CHC Govt. Hospital Aonla (सरकारी अस्पताल)', subtitle: '🏥 Community Health Center, Aonla', searchBlob: 'chc government hospital haspatal aspatal aonla' },
+      { lat: 28.2215, lng: 79.1765, title: 'IFFCO Township & Plant Aonla (इफको)', subtitle: '🏭 IFFCO Aonla, Bareilly', searchBlob: 'iffco ifco township plant colony aonla' },
+      { lat: 28.2748, lng: 79.1592, title: 'Bus Stand Aonla (बस स्टैंड आंवला)', subtitle: '🚌 Roadways Bus Stand, Aonla', searchBlob: 'bus stand roadways adda aonla' },
+      { lat: 28.2792, lng: 79.1638, title: 'Budaun Road / Pakka Katra Mohalla (पक्का कटरा)', subtitle: '🏘️ Mohalla, Aonla', searchBlob: 'pakka katra mohalla mahola budaun road aonla' },
+      { lat: 28.2731, lng: 79.1565, title: 'Kila / Ganj Mohalla Aonla (किला / गंज मोहल्ला)', subtitle: '🏘️ Mohalla, Aonla', searchBlob: 'kila qila ganj mohalla mahola aonla' },
+      { lat: 28.2770, lng: 79.1655, title: 'Bareilly Road / Ramnagar Road Aonla', subtitle: '🛣️ Main Road, Aonla', searchBlob: 'bareilly road ramnagar road chauraha aonla' },
+      { lat: 28.3665, lng: 79.1332, title: 'Ramnagar / Ahichchhatra Jain Mandir', subtitle: '🛕 Ramnagar, Aonla Tehsil', searchBlob: 'ramnagar ahichchhatra jain mandir fort aonla' },
+      { lat: 28.2885, lng: 79.2540, title: 'Bisharatganj Market & Station (बिशारतगंज)', subtitle: '🏘️ Aonla Tehsil, Bareilly', searchBlob: 'bisharatganj market station aonla' },
+      { lat: 28.3480, lng: 79.2280, title: 'Aliganj Bazar Aonla (अलीगंज)', subtitle: '🏘️ Aonla Tehsil, Bareilly', searchBlob: 'aliganj bazar market aonla' }
+    ];
 
     let currentUser = null;
     let map, pickupMarker, dropMarker, routeLine, liveCaptainMarker;
@@ -198,7 +215,7 @@
     let captainMarkersLayer = L.layerGroup();
     let ridePollTimer = null;
     let typingTimer = null;
-    let aonlaPlacesCache = [];
+    let aonlaPlacesCache = [...AONLA_BUILT_IN_PLACES];
 
     // 1. Login / Auto-Register Customer
     async function loginCustomer() {
@@ -268,7 +285,7 @@
       }
     };
 
-    // 2. Initialize Map on Aonla + Preload All Aonla Streets, Mohallas, Colleges & Stations
+    // 2. Initialize Map on Aonla + Preload Extra OSM Streets & Mohallas
     async function startCustomerApp() {
       document.getElementById('auth-screen').style.display = 'none';
       document.getElementById('app-screen').style.display = 'flex';
@@ -285,10 +302,8 @@
         .bindPopup('🟢 आपकी Pickup लोकेशन (आंवला)')
         .openPopup();
 
-      // Load all mapped places in 12km radius of Aonla in background
       preloadAonlaLocalPlaces();
 
-      // Tap anywhere on map to set Drop point
       map.on('click', (e) => {
         if (activeRide) return;
         document.getElementById('suggestions-box').style.display = 'none';
@@ -299,7 +314,6 @@
         );
       });
 
-      // Get Live GPS Position
       if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(
           (pos) => {
@@ -319,7 +333,6 @@
         loadNearbyCaptains();
       }
 
-      // Resume unfinished ride if any
       const { data: existingRide } = await db
         .from('rides')
         .select('*')
@@ -338,18 +351,17 @@
       }, 7000);
     }
 
-    // Download all real Aonla POIs (Railway Station, Tehsil, Colleges, Schools, Mohallas, Roads, Villages)
     async function preloadAonlaLocalPlaces() {
       const overpassQuery = `
         [out:json][timeout:12];
         (
-          node["name"](around:12000,${AONLA_LAT},${AONLA_LNG});
-          way["name"]["amenity"](around:12000,${AONLA_LAT},${AONLA_LNG});
-          way["name"]["railway"](around:12000,${AONLA_LAT},${AONLA_LNG});
-          way["name"]["place"](around:12000,${AONLA_LAT},${AONLA_LNG});
-          way["name"]["highway"](around:7000,${AONLA_LAT},${AONLA_LNG});
+          node["name"](around:15000,${AONLA_LAT},${AONLA_LNG});
+          way["name"]["amenity"](around:15000,${AONLA_LAT},${AONLA_LNG});
+          way["name"]["railway"](around:15000,${AONLA_LAT},${AONLA_LNG});
+          way["name"]["place"](around:15000,${AONLA_LAT},${AONLA_LNG});
+          way["name"]["highway"](around:8000,${AONLA_LAT},${AONLA_LNG});
         );
-        out center 300;
+        out center 350;
       `;
       try {
         const res = await fetch('https://overpass-api.de/api/interpreter', {
@@ -358,7 +370,7 @@
         });
         const data = await res.json();
         if (data && data.elements) {
-          const seen = new Set();
+          const seen = new Set(aonlaPlacesCache.map((p) => p.title.toLowerCase()));
           data.elements.forEach((el) => {
             const tags = el.tags || {};
             const name = tags['name:en'] || tags.name;
@@ -393,25 +405,10 @@
       } catch (e) {}
     }
 
-    // 1-Tap Aonla Quick Chip Handler
-    async function selectAonlaQuick(displayTitle, keyword) {
+    function selectPreset(index) {
       document.getElementById('suggestions-box').style.display = 'none';
-
-      // 1. Check local Aonla cache first
-      const localMatch = aonlaPlacesCache.find((p) => p.searchBlob.includes(keyword.toLowerCase()));
-      if (localMatch) {
-        setDropPoint(localMatch.lat, localMatch.lng, localMatch.title);
-        return;
-      }
-
-      // 2. Fallback to bounded Aonla search
-      document.getElementById('drop-input').value = displayTitle;
-      const results = await queryAonlaPlaces(displayTitle);
-      if (results.length > 0) {
-        setDropPoint(results[0].lat, results[0].lng, results[0].title);
-      } else {
-        setDropPoint(AONLA_LAT, AONLA_LNG, displayTitle);
-      }
+      const item = AONLA_BUILT_IN_PLACES[index];
+      if (item) setDropPoint(item.lat, item.lng, item.title);
     }
 
     function recenterGPS() {
@@ -448,11 +445,11 @@
       }
     }
 
-    // 4. Smart Hindi/Hinglish Spelling Fixer for Aonla
+    // 4. Smart Hindi/Hinglish Spelling Fixer (Includes railbay, railbe, tahsil, etc.)
     function fixCommonTypos(text) {
       return text
-        .replace(/railbe|relwe|relway|ralway|railwey/gi, 'railway')
-        .replace(/staion|stasion|stsn|stesan/gi, 'station')
+        .replace(/railbay|ralbay|relbay|railbe|relwe|relway|ralway|railwey/gi, 'railway')
+        .replace(/staion|stasion|stsn|stesan|stetion/gi, 'station')
         .replace(/tahsil|tehasil|tashil/gi, 'tehsil')
         .replace(/mahola|mohala|muhalla|mohlla/gi, 'mohalla')
         .replace(/colege|colage|clg|kaleg/gi, 'college')
@@ -484,7 +481,7 @@
 
       typingTimer = setTimeout(() => {
         fetchLiveSuggestions(cleanVal);
-      }, 250);
+      }, 200);
     }
 
     async function queryAonlaPlaces(rawQuery) {
@@ -492,35 +489,36 @@
       const lowerCleaned = cleaned.toLowerCase();
       let places = [];
 
-      // Step 1: Instant match from preloaded Aonla local database (Mohallas, Colleges, Tehsil, Station, Villages)
-      if (aonlaPlacesCache.length > 0) {
-        const words = lowerCleaned.split(/\s+/).filter((w) => w.length > 1 && w !== 'aonla');
-        aonlaPlacesCache.forEach((item) => {
-          const isMatch = words.length > 0
-            ? words.every((w) => item.searchBlob.includes(w))
-            : item.searchBlob.includes(lowerCleaned);
-          if (isMatch) places.push(item);
-        });
-      }
+      // Step 1: Instant match from Aonla built-in + cached directory
+      const words = lowerCleaned.split(/\s+/).filter((w) => w.length > 1 && w !== 'aonla');
+      aonlaPlacesCache.forEach((item) => {
+        const isMatch = words.length > 0
+          ? words.every((w) => item.searchBlob.includes(w))
+          : item.searchBlob.includes(lowerCleaned);
+        if (isMatch) places.push(item);
+      });
 
-      // Step 2: Photon API biased strictly to Aonla GPS
+      // Step 2: Photon API strictly filtered within 60km of Aonla (Blocks Delhi/Haldwani)
       const queryWithAonla = lowerCleaned.includes('aonla') ? cleaned : `${cleaned} Aonla`;
       try {
-        const photonUrl = `https://photon.komoot.io/api/?q=${encodeURIComponent(queryWithAonla)}&lat=${AONLA_LAT}&lon=${AONLA_LNG}&limit=7`;
+        const photonUrl = `https://photon.komoot.io/api/?q=${encodeURIComponent(queryWithAonla)}&lat=${AONLA_LAT}&lon=${AONLA_LNG}&limit=10`;
         const pRes = await fetch(photonUrl);
         const pJson = await pRes.json();
         if (pJson && pJson.features) {
           pJson.features.forEach((f) => {
+            const pLat = f.geometry.coordinates[1];
+            const pLng = f.geometry.coordinates[0];
+            if (getDistanceKm(AONLA_LAT, AONLA_LNG, pLat, pLng) > 60) return; // Ignore far cities like Delhi/Haldwani
+
             const p = f.properties || {};
-            if (p.country && p.country !== 'India' && p.countrycode !== 'IN') return;
             const title = p.name || p.street || p.village || p.town || p.city || cleaned;
             const isDup = places.some((x) => x.title.toLowerCase().includes(title.toLowerCase()));
             if (isDup) return;
             const subParts = [p.street, p.locality, p.district, p.city || p.town || p.village, p.state]
               .filter((v, i, arr) => v && v !== title && arr.indexOf(v) === i);
             places.push({
-              lat: f.geometry.coordinates[1],
-              lng: f.geometry.coordinates[0],
+              lat: pLat,
+              lng: pLng,
               title: title,
               subtitle: subParts.join(', ') || 'Aonla, Bareilly'
             });
@@ -531,7 +529,7 @@
       // Step 3: Nominatim Bounded Search inside Aonla Tehsil Box
       if (places.length < 4) {
         try {
-          const nomUrl = `https://nominatim.openstreetmap.org/search?format=json&countrycodes=in&viewbox=79.00,28.12,79.32,28.42&q=${encodeURIComponent(queryWithAonla + ' Bareilly')}&limit=6`;
+          const nomUrl = `https://nominatim.openstreetmap.org/search?format=json&countrycodes=in&viewbox=79.00,28.12,79.32,28.42&bounded=1&q=${encodeURIComponent(cleaned)}&limit=6`;
           const nRes = await fetch(nomUrl);
           const nJson = await nRes.json();
           if (Array.isArray(nJson)) {
@@ -625,7 +623,6 @@
       calcFare = Math.max(20, Math.round(15 + calcDistance * 7));
       updateFareUI([[pickupLat, pickupLng], [dropLat, dropLng]], true);
 
-      // Real Road Distance via OSRM
       try {
         const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${pickupLng},${pickupLat};${dropLng},${dropLat}?overview=full&geometries=geojson`;
         const rRes = await fetch(osrmUrl);
@@ -661,174 +658,4 @@
       const dLon = (lon2 - lon1) * Math.PI / 180;
       const a =
         Math.sin(dLat / 2) ** 2 +
-        Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) ** 2;
-      return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    }
-
-    // 6. Book Ride
-    async function bookRide() {
-      if (!dropLat || !dropLng) return alert('पहले Drop लोकेशन चुनें');
-      const dropAddr = document.getElementById('drop-input').value || 'Aonla Drop Location';
-
-      const bookBtn = document.getElementById('book-btn');
-      bookBtn.innerText = 'बुकिंग हो रही है...';
-      bookBtn.disabled = true;
-
-      const { data, error } = await db
-        .from('rides')
-        .insert([{
-          customer_id: currentUser.id,
-          pickup_address: 'आंवला वर्तमान GPS लोकेशन',
-          pickup_lat: pickupLat,
-          pickup_lng: pickupLng,
-          drop_address: dropAddr,
-          drop_lat: dropLat,
-          drop_lng: dropLng,
-          distance_km: calcDistance,
-          fare_amount: calcFare,
-          status: 'searching'
-        }])
-        .select()
-        .single();
-
-      bookBtn.innerText = '🚀 BOOK SM RIDE';
-      bookBtn.disabled = false;
-
-      if (error) return alert('Booking Error: ' + error.message);
-      resumeTrackingUI(data);
-    }
-
-    function resumeTrackingUI(ride) {
-      activeRide = ride;
-      document.getElementById('suggestions-box').style.display = 'none';
-      document.getElementById('booking-panel').style.display = 'none';
-      document.getElementById('tracking-panel').style.display = 'block';
-      document.getElementById('ride-otp-display').innerText = activeRide.ride_otp;
-      document.getElementById('track-fare').innerText = `किराया: ₹${activeRide.fare_amount} (${activeRide.distance_km} km)`;
-
-      updateRideUI(activeRide);
-      listenToActiveRide(activeRide.id);
-    }
-
-    // 7. Realtime + Backup Sync for Active Ride & Live Captain Location
-    function listenToActiveRide(rideId) {
-      db.channel('customer:ride:' + rideId)
-        .on(
-          'postgres_changes',
-          { event: 'UPDATE', schema: 'public', table: 'rides', filter: `id=eq.${rideId}` },
-          (payload) => updateRideUI(payload.new)
-        )
-        .subscribe();
-
-      if (ridePollTimer) clearInterval(ridePollTimer);
-      ridePollTimer = setInterval(async () => {
-        if (!activeRide) return clearInterval(ridePollTimer);
-        const { data } = await db.from('rides').select('*').eq('id', rideId).maybeSingle();
-        if (data) updateRideUI(data);
-        if (activeRide && activeRide.captain_id) {
-          syncAssignedCaptainLocation(activeRide.captain_id);
-        }
-      }, 3000);
-    }
-
-    async function syncAssignedCaptainLocation(captainId) {
-      const { data } = await db.rpc('find_nearby_captains', {
-        user_lat: pickupLat,
-        user_lng: pickupLng,
-        radius_meters: 25000
-      });
-      if (!data) return;
-      const cap = data.find((c) => c.captain_id === captainId);
-      if (cap) {
-        if (liveCaptainMarker) {
-          liveCaptainMarker.setLatLng([cap.lat, cap.lng]);
-        } else {
-          captainMarkersLayer.clearLayers();
-          liveCaptainMarker = L.marker([cap.lat, cap.lng])
-            .addTo(map)
-            .bindPopup(`🏍️ आपके कैप्टन (${cap.full_name})`)
-            .openPopup();
-        }
-      }
-    }
-
-    async function updateRideUI(ride) {
-      activeRide = ride;
-      const statusEl = document.getElementById('ride-status-text');
-
-      if (ride.captain_id && document.getElementById('captain-card').style.display === 'none') {
-        const { data: capProf } = await db
-          .from('profiles')
-          .select('full_name, phone')
-          .eq('id', ride.captain_id)
-          .maybeSingle();
-        const { data: capDet } = await db
-          .from('captain_details')
-          .select('vehicle_number, bike_model')
-          .eq('captain_id', ride.captain_id)
-          .maybeSingle();
-
-        if (capProf) {
-          document.getElementById('captain-card').style.display = 'block';
-          document.getElementById('cap-name').innerText = `🏍️ ${capProf.full_name}`;
-          document.getElementById('cap-bike').innerText = `${capDet?.bike_model || 'Bike'} • ${capDet?.vehicle_number || '--'}`;
-          document.getElementById('cap-call-link').href = `tel:${capProf.phone}`;
-          syncAssignedCaptainLocation(ride.captain_id);
-        }
-      }
-
-      if (ride.status === 'searching') {
-        statusEl.innerText = '🔍 आंवला में नज़दीकी कैप्टन ढूंढ रहे हैं...';
-      } else if (ride.status === 'accepted') {
-        statusEl.innerText = '✅ कैप्टन मिल गए! आपकी लोकेशन पर आ रहे हैं';
-      } else if (ride.status === 'arrived') {
-        statusEl.innerText = '📍 कैप्टन पिकअप पर पहुँच गए हैं! OTP बताएं';
-      } else if (ride.status === 'ongoing') {
-        statusEl.innerText = '🏍️ राइड शुरू हो गई है — शुभ यात्रा!';
-        document.getElementById('cancel-btn').style.display = 'none';
-      } else if (ride.status === 'completed') {
-        alert(`🎉 आप मंज़िल पर पहुँच गए! कैप्टन को ₹${ride.fare_amount} कैश/UPI दें।`);
-        resetCustomerApp();
-      } else if (ride.status === 'cancelled') {
-        resetCustomerApp();
-      }
-    }
-
-    // 8. Cancel Ride
-    async function cancelRide() {
-      if (!activeRide) return;
-      if (!confirm('क्या आप वाकई राइड कैंसिल करना चाहते हैं?')) return;
-      await db.from('rides').update({ status: 'cancelled' }).eq('id', activeRide.id);
-      resetCustomerApp();
-    }
-
-    function resetCustomerApp() {
-      activeRide = null;
-      if (ridePollTimer) clearInterval(ridePollTimer);
-      if (liveCaptainMarker) {
-        map.removeLayer(liveCaptainMarker);
-        liveCaptainMarker = null;
-      }
-      if (routeLine) {
-        map.removeLayer(routeLine);
-        routeLine = null;
-      }
-      if (dropMarker) {
-        map.removeLayer(dropMarker);
-        dropMarker = null;
-      }
-      dropLat = null;
-      dropLng = null;
-      document.getElementById('drop-input').value = '';
-      document.getElementById('clear-btn').style.display = 'none';
-      document.getElementById('fare-card').style.display = 'none';
-      document.getElementById('book-btn').style.display = 'none';
-      document.getElementById('tracking-panel').style.display = 'none';
-      document.getElementById('captain-card').style.display = 'none';
-      document.getElementById('cancel-btn').style.display = 'block';
-      document.getElementById('booking-panel').style.display = 'block';
-      loadNearbyCaptains();
-    }
-  </script>
-</body>
-</html>
+        Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) **
