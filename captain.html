@@ -50,6 +50,12 @@
     #app-screen { display: none; flex-direction: column; flex: 1; min-height: 0; position: relative; }
     #map { flex: 1; min-height: 140px; width: 100%; z-index: 1; }
 
+    /* Custom Map Pin Badges */
+    .pin-badge { padding: 4px 8px; border-radius: 12px; font-size: 11px; font-weight: 800; white-space: nowrap; box-shadow: 0 2px 8px rgba(0,0,0,0.6); border: 2px solid #fff; text-align: center; }
+    .pin-cap { background: #2563eb; color: #fff; }
+    .pin-pick { background: #16a34a; color: #fff; }
+    .pin-drop { background: #dc2626; color: #fff; }
+
     .bottom-panel {
       background: #1f2937;
       padding: 12px 14px calc(16px + env(safe-area-inset-bottom));
@@ -58,7 +64,7 @@
       z-index: 1000;
       box-shadow: 0 -4px 20px rgba(0,0,0,0.6);
       flex-shrink: 0;
-      max-height: 62dvh;
+      max-height: 64dvh;
       overflow-y: auto;
     }
     .stats-row { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 13px; color: #d1d5db; }
@@ -73,6 +79,9 @@
     .btn-reject { flex: 1; padding: 12px; background: #dc2626; color: #fff; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; }
 
     #active-ride-box { display: none; background: #111827; padding: 12px; border-radius: 14px; border: 1.5px solid #facc15; margin-bottom: 4px; }
+    .nav-bar-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 8px; }
+    .nav-btn { background: #2563eb; color: #fff; text-decoration: none; padding: 6px 11px; border-radius: 8px; font-size: 12px; font-weight: 700; white-space: nowrap; }
+    .route-box { background: #1f2937; padding: 8px 10px; border-radius: 10px; font-size: 12px; margin-bottom: 10px; line-height: 1.5; }
     .otp-row { display: flex; gap: 8px; margin-top: 8px; }
     .otp-row input { margin-bottom: 0; text-align: center; font-size: 18px; letter-spacing: 4px; font-weight: bold; padding: 10px; }
   </style>
@@ -127,12 +136,21 @@
 
       <!-- Active Ride Panel -->
       <div id="active-ride-box">
-        <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
-          <strong style="color:#facc15; font-size:15px;" id="ride-stage-title">पिकअप पर पहुँचें</strong>
-          <strong style="color:#22c55e; font-size:16px;" id="active-fare">₹0</strong>
+        <div class="nav-bar-row">
+          <div>
+            <strong style="color:#facc15; font-size:15px;" id="ride-stage-title">पिकअप पर पहुँचें</strong>
+            <div style="font-size:12px; color:#93c5fd; margin-top:2px;" id="customer-contact">कस्टमर: --</div>
+          </div>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <strong style="color:#22c55e; font-size:17px;" id="active-fare">₹0</strong>
+            <a id="gmaps-nav-btn" href="#" target="_blank" class="nav-btn">🧭 रास्ता देखें</a>
+          </div>
         </div>
-        <div style="font-size:13px; color:#93c5fd; margin-bottom:4px;" id="customer-contact">कस्टमर: --</div>
-        <div style="font-size:12px; color:#d1d5db; margin-bottom:10px; line-height:1.4;" id="active-route">--</div>
+
+        <div class="route-box">
+          <div style="color:#6ee7b7;" id="active-pickup-text">🟢 Pickup: लोकेशन लोड हो रही है...</div>
+          <div style="color:#fca5a5; margin-top:3px;" id="active-drop-text">🔴 Drop: --</div>
+        </div>
 
         <button id="btn-arrived" class="btn-yellow" onclick="markArrived()">📍 पिकअप लोकेशन पर पहुँच गया</button>
 
@@ -161,11 +179,20 @@
 
     let currentCaptain = null;
     let isOnline = false;
-    let map, marker;
+    let map, marker, pickupMarker, dropMarker, routeLine;
     let currentLat = 28.2757, currentLng = 79.1603;
     let pendingRide = null;
     let activeRide = null;
     let earnings = 0;
+
+    function createBadgeIcon(text, cls) {
+      return L.divIcon({
+        className: '',
+        html: `<div class="pin-badge ${cls}">${text}</div>`,
+        iconSize: [96, 26],
+        iconAnchor: [48, 13]
+      });
+    }
 
     async function loginOrRegister() {
       const name = document.getElementById('c-name').value.trim();
@@ -240,7 +267,9 @@
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '© OpenStreetMap'
       }).addTo(map);
-      marker = L.marker([currentLat, currentLng]).addTo(map).bindPopup('आप यहाँ हैं').openPopup();
+      marker = L.marker([currentLat, currentLng], {
+        icon: createBadgeIcon('🏍️ आप', 'pin-cap')
+      }).addTo(map);
 
       setTimeout(() => map.invalidateSize(), 300);
 
@@ -250,7 +279,7 @@
             currentLat = pos.coords.latitude;
             currentLng = pos.coords.longitude;
             marker.setLatLng([currentLat, currentLng]);
-            map.setView([currentLat, currentLng], 16);
+            if (!activeRide) map.setView([currentLat, currentLng], 16);
             document.getElementById('gps-status').innerText = `📡 Live GPS: ${currentLat.toFixed(4)}, ${currentLng.toFixed(4)}`;
             if (isOnline) syncLocationToSupabase();
           },
@@ -340,15 +369,34 @@
       }, 3000);
     }
 
-    function showRidePopup(ride) {
+    async function resolvePickupAddress(lat, lng, fallbackText) {
+      try {
+        const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
+        const data = await res.json();
+        if (data && data.address) {
+          const a = data.address;
+          const parts = [a.road, a.neighbourhood || a.suburb, a.village || a.town || a.city, a.state_district]
+            .filter((v, i, arr) => v && arr.indexOf(v) === i);
+          if (parts.length > 0) return `${parts.join(', ')} (${lat.toFixed(4)}, ${lng.toFixed(4)})`;
+        }
+      } catch (e) {}
+      return `${fallbackText} (${lat.toFixed(4)}, ${lng.toFixed(4)})`;
+    }
+
+    async function showRidePopup(ride) {
       pendingRide = ride;
       document.getElementById('req-fare').innerText = `₹${ride.fare_amount}`;
-      document.getElementById('req-pickup').innerText = `📍 Pickup: ${ride.pickup_address}`;
+      document.getElementById('req-pickup').innerText = `📍 Pickup: ${ride.pickup_address} (${ride.pickup_lat.toFixed(4)}, ${ride.pickup_lng.toFixed(4)})`;
       document.getElementById('req-drop').innerText = `🏁 Drop: ${ride.drop_address}`;
       document.getElementById('req-dist').innerText = `दूरी: ${ride.distance_km} km`;
       document.getElementById('ride-request-box').style.display = 'block';
       document.getElementById('idle-msg').style.display = 'none';
       if (navigator.vibrate) navigator.vibrate([300, 150, 300]);
+
+      const exactPickup = await resolvePickupAddress(ride.pickup_lat, ride.pickup_lng, ride.pickup_address);
+      if (pendingRide && pendingRide.id === ride.id) {
+        document.getElementById('req-pickup').innerText = `📍 Pickup: ${exactPickup}`;
+      }
     }
 
     function rejectRide() {
@@ -376,6 +424,59 @@
       await resumeActiveRide(data);
     }
 
+    async function drawRideOnMap(ride) {
+      if (!map) return;
+
+      // Show Green Customer Pickup Pin
+      if (pickupMarker) {
+        pickupMarker.setLatLng([ride.pickup_lat, ride.pickup_lng]);
+      } else {
+        pickupMarker = L.marker([ride.pickup_lat, ride.pickup_lng], {
+          icon: createBadgeIcon('🟢 Pickup', 'pin-pick')
+        }).addTo(map).bindPopup('🟢 कस्टमर की Pickup लोकेशन');
+      }
+
+      // Show Red Drop Pin
+      if (dropMarker) {
+        dropMarker.setLatLng([ride.drop_lat, ride.drop_lng]);
+      } else {
+        dropMarker = L.marker([ride.drop_lat, ride.drop_lng], {
+          icon: createBadgeIcon('🔴 Drop', 'pin-drop')
+        }).addTo(map).bindPopup(`🔴 Drop: ${ride.drop_address}`);
+      }
+
+      // Decide route segment: Captain -> Pickup OR Pickup -> Drop
+      const isOngoing = ride.status === 'ongoing';
+      const fromLat = isOngoing ? ride.pickup_lat : currentLat;
+      const fromLng = isOngoing ? ride.pickup_lng : currentLng;
+      const toLat = isOngoing ? ride.drop_lat : ride.pickup_lat;
+      const toLng = isOngoing ? ride.drop_lng : ride.pickup_lng;
+
+      // Update Google Maps Turn-by-Turn Navigation Link
+      const navBtn = document.getElementById('gmaps-nav-btn');
+      navBtn.href = `https://www.google.com/maps/dir/?api=1&destination=${toLat},${toLng}&travelmode=two-wheeler`;
+      navBtn.innerText = isOngoing ? '🧭 Drop रास्ता' : '🧭 Pickup रास्ता';
+
+      // Draw road line via OSRM
+      let lineCoords = [[fromLat, fromLng], [toLat, toLng]];
+      try {
+        const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${fromLng},${fromLat};${toLng},${toLat}?overview=full&geometries=geojson`;
+        const res = await fetch(osrmUrl);
+        const json = await res.json();
+        if (json && json.routes && json.routes.length > 0) {
+          lineCoords = json.routes[0].geometry.coordinates.map((c) => [c[1], c[0]]);
+        }
+      } catch (e) {}
+
+      if (routeLine) map.removeLayer(routeLine);
+      routeLine = L.polyline(lineCoords, {
+        color: isOngoing ? '#22c55e' : '#facc15',
+        weight: 5
+      }).addTo(map);
+
+      map.fitBounds([[fromLat, fromLng], [toLat, toLng]], { padding: [45, 45] });
+    }
+
     async function resumeActiveRide(ride) {
       activeRide = ride;
       const { data: cust } = await db.from('profiles').select('full_name, phone').eq('id', activeRide.customer_id).maybeSingle();
@@ -387,7 +488,8 @@
       document.getElementById('ride-request-box').style.display = 'none';
       document.getElementById('active-ride-box').style.display = 'block';
       document.getElementById('active-fare').innerText = `₹${activeRide.fare_amount}`;
-      document.getElementById('active-route').innerText = `${activeRide.pickup_address} ➔ ${activeRide.drop_address}`;
+      document.getElementById('active-pickup-text').innerText = `🟢 Pickup: ${activeRide.pickup_address} (${activeRide.pickup_lat.toFixed(4)}, ${activeRide.pickup_lng.toFixed(4)})`;
+      document.getElementById('active-drop-text').innerText = `🔴 Drop: ${activeRide.drop_address}`;
 
       if (activeRide.status === 'accepted') {
         document.getElementById('ride-stage-title').innerText = 'पिकअप पर पहुँचें';
@@ -405,7 +507,17 @@
         document.getElementById('otp-section').style.display = 'none';
         document.getElementById('btn-complete').style.display = 'block';
       }
-      setTimeout(() => map.invalidateSize(), 200);
+
+      setTimeout(() => {
+        map.invalidateSize();
+        drawRideOnMap(activeRide);
+      }, 250);
+
+      // Fetch exact village/mohalla/road name for Pickup
+      const exactPickup = await resolvePickupAddress(activeRide.pickup_lat, activeRide.pickup_lng, activeRide.pickup_address);
+      if (activeRide && activeRide.id === ride.id) {
+        document.getElementById('active-pickup-text').innerText = `🟢 Pickup: ${exactPickup}`;
+      }
     }
 
     async function markArrived() {
@@ -426,6 +538,7 @@
       document.getElementById('ride-stage-title').innerText = '🏍️ राइड चल रही है (Drop की ओर)';
       document.getElementById('otp-section').style.display = 'none';
       document.getElementById('btn-complete').style.display = 'block';
+      drawRideOnMap(activeRide);
     }
 
     async function completeRide() {
@@ -443,6 +556,9 @@
     function resetCaptainUI() {
       activeRide = null;
       pendingRide = null;
+      if (pickupMarker) { map.removeLayer(pickupMarker); pickupMarker = null; }
+      if (dropMarker) { map.removeLayer(dropMarker); dropMarker = null; }
+      if (routeLine) { map.removeLayer(routeLine); routeLine = null; }
       document.getElementById('active-ride-box').style.display = 'none';
       document.getElementById('ride-request-box').style.display = 'none';
       document.getElementById('btn-arrived').style.display = 'block';
@@ -451,6 +567,7 @@
       document.getElementById('otp-input').value = '';
       document.getElementById('ride-stage-title').innerText = 'पिकअप पर पहुँचें';
       document.getElementById('idle-msg').style.display = 'block';
+      map.setView([currentLat, currentLng], 15);
     }
   </script>
 </body>
