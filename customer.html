@@ -9,157 +9,316 @@
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Roboto, sans-serif; }
-    body { background: #111827; color: #fff; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
-
-    /* Header */
-    .header { background: #facc15; color: #111827; padding: 11px 16px; display: flex; justify-content: space-between; align-items: center; z-index: 1000; box-shadow: 0 2px 10px rgba(0,0,0,0.4); }
-    .brand { font-size: 19px; font-weight: 900; letter-spacing: -0.5px; }
-    .brand span { font-size: 11px; background: #111827; color: #facc15; padding: 2px 6px; border-radius: 6px; margin-left: 4px; vertical-align: middle; }
-    .header-right { display: flex; align-items: center; gap: 8px; }
-    .nearby-pill { background: #111827; color: #facc15; padding: 5px 10px; border-radius: 14px; font-size: 11px; font-weight: 700; }
-    .logout-btn { background: rgba(17,24,39,0.15); color: #111827; border: 1px solid #111827; padding: 4px 8px; border-radius: 8px; font-size: 11px; font-weight: bold; cursor: pointer; display: none; }
+    html, body {
+      background: #f3f4f6;
+      color: #111827;
+      width: 100%;
+      height: 100vh;
+      height: 100dvh;
+      position: fixed;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
 
     /* Auth Screen */
-    #auth-screen { padding: 24px; flex: 1; display: flex; flex-direction: column; justify-content: center; }
-    .card { background: #1f2937; padding: 24px; border-radius: 18px; border: 1px solid #374151; box-shadow: 0 10px 25px rgba(0,0,0,0.4); }
-    .card h2 { color: #facc15; margin-bottom: 6px; font-size: 22px; }
-    .card p { color: #9ca3af; font-size: 13px; margin-bottom: 18px; }
-    input { width: 100%; padding: 13px; margin-bottom: 12px; border-radius: 10px; border: 1px solid #4b5563; background: #111827; color: #fff; font-size: 15px; outline: none; }
-    input:focus { border-color: #facc15; }
-    .btn-yellow { width: 100%; padding: 14px; background: #facc15; color: #111827; border: none; border-radius: 12px; font-weight: 800; font-size: 16px; cursor: pointer; transition: 0.2s; }
-    .btn-yellow:active { transform: scale(0.98); }
+    #auth-screen {
+      background: #111827;
+      color: #fff;
+      padding: 24px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      z-index: 2000;
+    }
+    .auth-card { background: #1f2937; padding: 24px; border-radius: 20px; border: 1px solid #374151; box-shadow: 0 12px 30px rgba(0,0,0,0.5); }
+    .auth-card h2 { color: #facc15; margin-bottom: 6px; font-size: 22px; }
+    .auth-card p { color: #9ca3af; font-size: 13px; margin-bottom: 18px; }
+    .auth-card input { width: 100%; padding: 13px; margin-bottom: 12px; border-radius: 12px; border: 1px solid #4b5563; background: #111827; color: #fff; font-size: 15px; outline: none; }
+    .auth-card input:focus { border-color: #facc15; }
+    .btn-yellow { width: 100%; padding: 14px; background: #facc15; color: #111827; border: none; border-radius: 12px; font-weight: 800; font-size: 16px; cursor: pointer; }
 
-    /* App Layout */
-    #app-screen { display: none; flex-direction: column; flex: 1; position: relative; }
-    #map { flex: 1; width: 100%; z-index: 1; }
+    /* Full Screen Map App */
+    #app-screen { display: none; flex: 1; position: relative; width: 100%; height: 100%; }
+    #map { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 1; }
 
-    /* Recenter GPS Floating Button */
-    .gps-recenter { position: absolute; right: 14px; top: 14px; z-index: 999; background: #1f2937; color: #facc15; border: 2px solid #facc15; width: 42px; height: 42px; border-radius: 50%; font-size: 18px; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.5); }
+    /* Floating Top Google-Maps-Style Card */
+    .top-floating-wrap {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      right: 10px;
+      z-index: 1000;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
 
-    /* Bottom Sheet */
-    .bottom-sheet { background: #1f2937; padding: 12px 14px 16px; border-top-left-radius: 22px; border-top-right-radius: 22px; z-index: 1000; box-shadow: 0 -6px 24px rgba(0,0,0,0.6); position: relative; }
+    .top-status-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #111827;
+      color: #fff;
+      padding: 7px 12px;
+      border-radius: 14px;
+      box-shadow: 0 3px 12px rgba(0,0,0,0.25);
+    }
+    .brand-tag { font-weight: 900; font-size: 15px; color: #facc15; }
+    .brand-tag span { background: #facc15; color: #111827; font-size: 10px; padding: 1px 6px; border-radius: 5px; margin-left: 4px; }
+    .pill-group { display: flex; align-items: center; gap: 6px; }
+    .nearby-pill { background: #064e3b; color: #6ee7b7; padding: 3px 9px; border-radius: 12px; font-size: 11px; font-weight: 700; }
+    .mini-btn { background: #374151; color: #fff; border: none; padding: 4px 8px; border-radius: 8px; font-size: 11px; font-weight: 600; cursor: pointer; }
 
-    /* Aonla 1-Tap Quick Place Chips */
-    .quick-chips { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 8px; margin-bottom: 6px; scrollbar-width: none; }
+    /* White Route Card like Google Maps */
+    .search-card {
+      background: #ffffff;
+      border-radius: 16px;
+      padding: 8px 12px;
+      box-shadow: 0 4px 18px rgba(0,0,0,0.2);
+      border: 1px solid #e5e7eb;
+    }
+    .route-row { display: flex; align-items: center; gap: 10px; padding: 5px 0; }
+    .route-divider { height: 1px; background: #e5e7eb; margin: 3px 0 3px 24px; }
+    .dot-blue { width: 12px; height: 12px; border-radius: 50%; background: #2563eb; border: 2px solid #bfdbfe; flex-shrink: 0; }
+    .pin-red { font-size: 15px; flex-shrink: 0; width: 14px; text-align: center; }
+    .pickup-text { font-size: 13px; color: #2563eb; font-weight: 600; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    
+    .drop-input-wrap { display: flex; align-items: center; flex: 1; gap: 4px; }
+    .drop-input-wrap input {
+      width: 100%;
+      border: none;
+      outline: none;
+      font-size: 14px;
+      font-weight: 600;
+      color: #111827;
+      background: transparent;
+      padding: 3px 0;
+    }
+    .drop-input-wrap input::placeholder { color: #6b7280; font-weight: 400; }
+    .icon-action { background: #f3f4f6; border: none; color: #374151; padding: 5px 9px; border-radius: 8px; font-size: 12px; font-weight: 700; cursor: pointer; }
+
+    /* Quick Aonla Chips */
+    .quick-chips { display: flex; gap: 6px; overflow-x: auto; padding: 2px 0; scrollbar-width: none; }
     .quick-chips::-webkit-scrollbar { display: none; }
-    .chip-btn { background: #111827; color: #facc15; border: 1px solid #374151; padding: 6px 11px; border-radius: 16px; font-size: 12px; font-weight: 600; white-space: nowrap; cursor: pointer; flex-shrink: 0; }
-    .chip-btn:active { background: #facc15; color: #111827; }
+    .chip-btn {
+      background: #ffffff;
+      color: #111827;
+      border: 1px solid #d1d5db;
+      padding: 5px 10px;
+      border-radius: 16px;
+      font-size: 11.5px;
+      font-weight: 700;
+      white-space: nowrap;
+      cursor: pointer;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.12);
+      flex-shrink: 0;
+    }
+    .chip-btn:active { background: #2563eb; color: #fff; border-color: #2563eb; }
 
-    /* Live Suggestions Box */
-    #suggestions-box { display: none; background: #111827; border: 1.5px solid #facc15; border-radius: 12px; margin-bottom: 8px; max-height: 195px; overflow-y: auto; box-shadow: 0 -8px 20px rgba(0,0,0,0.7); }
-    .sug-item { padding: 10px 12px; border-bottom: 1px solid #1f2937; cursor: pointer; display: flex; flex-direction: column; gap: 2px; }
+    /* Live Autocomplete Dropdown */
+    #suggestions-box {
+      display: none;
+      background: #ffffff;
+      border-radius: 14px;
+      box-shadow: 0 8px 25px rgba(0,0,0,0.28);
+      max-height: 210px;
+      overflow-y: auto;
+      border: 1px solid #e5e7eb;
+    }
+    .sug-item { padding: 10px 14px; border-bottom: 1px solid #f3f4f6; cursor: pointer; }
     .sug-item:last-child { border-bottom: none; }
-    .sug-item:active { background: #374151; }
-    .sug-title { font-size: 14px; font-weight: 700; color: #facc15; }
-    .sug-sub { font-size: 11px; color: #9ca3af; }
+    .sug-item:active { background: #eff6ff; }
+    .sug-title { font-size: 13.5px; font-weight: 700; color: #111827; }
+    .sug-sub { font-size: 11px; color: #6b7280; margin-top: 2px; }
 
-    .loc-box { background: #111827; padding: 9px 12px; border-radius: 10px; margin-bottom: 7px; font-size: 13px; border-left: 4px solid #22c55e; display: flex; justify-content: space-between; align-items: center; }
-    .drop-box { border-left-color: #ef4444; gap: 6px; }
-    .drop-box input { margin-bottom: 0; border: none; padding: 4px; background: transparent; font-size: 14px; flex: 1; }
-    .clear-btn { background: none; border: none; color: #9ca3af; font-size: 16px; padding: 0 6px; cursor: pointer; display: none; }
-    .search-btn { background: #374151; color: #facc15; border: none; padding: 7px 12px; border-radius: 8px; font-weight: bold; font-size: 13px; cursor: pointer; }
+    /* Floating Map Controls (Right Side like Google Maps) */
+    .map-side-btns {
+      position: absolute;
+      right: 12px;
+      bottom: 175px;
+      z-index: 999;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .fab-btn {
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      background: #ffffff;
+      color: #111827;
+      border: 1px solid #e5e7eb;
+      box-shadow: 0 3px 10px rgba(0,0,0,0.25);
+      font-size: 18px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
 
-    .fare-card { display: none; background: #111827; border: 1.5px solid #facc15; padding: 11px 14px; border-radius: 12px; margin: 8px 0; justify-content: space-between; align-items: center; }
-    .fare-price { font-size: 25px; font-weight: 900; color: #facc15; }
+    /* Route Time & Distance Floating Bubble on Map */
+    .route-pill-marker {
+      background: #1d4ed8;
+      color: #ffffff;
+      padding: 4px 10px;
+      border-radius: 14px;
+      font-size: 12px;
+      font-weight: 800;
+      white-space: nowrap;
+      border: 2px solid #ffffff;
+      box-shadow: 0 3px 10px rgba(0,0,0,0.4);
+      text-align: center;
+    }
+
+    /* Compact White Bottom Sheet (Like Screenshot 2) */
+    .bottom-sheet {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: #ffffff;
+      color: #111827;
+      padding: 12px 14px calc(14px + env(safe-area-inset-bottom));
+      border-top-left-radius: 22px;
+      border-top-right-radius: 22px;
+      z-index: 1000;
+      box-shadow: 0 -4px 20px rgba(0,0,0,0.22);
+    }
+    .sheet-handle { width: 38px; height: 4px; background: #d1d5db; border-radius: 4px; margin: 0 auto 8px; }
+    .helper-hint { text-align: center; font-size: 12.5px; color: #4b5563; font-weight: 600; padding: 4px 0; }
+
+    .fare-row { display: none; justify-content: space-between; align-items: center; background: #f8fafc; border: 1.5px solid #2563eb; padding: 10px 14px; border-radius: 14px; margin-bottom: 10px; }
+    .fare-price { font-size: 24px; font-weight: 900; color: #1d4ed8; }
+    .btn-book {
+      display: none;
+      width: 100%;
+      padding: 13px;
+      background: #facc15;
+      color: #111827;
+      border: none;
+      border-radius: 14px;
+      font-weight: 900;
+      font-size: 16px;
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(250, 204, 21, 0.5);
+    }
 
     /* Tracking Panel */
     #tracking-panel { display: none; }
-    .status-banner { background: #064e3b; color: #6ee7b7; padding: 11px; border-radius: 10px; font-weight: bold; text-align: center; margin-bottom: 12px; font-size: 14px; border: 1px solid #059669; }
-    .otp-row { display: flex; justify-content: space-between; align-items: center; background: #111827; padding: 10px 14px; border-radius: 12px; margin-bottom: 10px; }
-    .otp-badge { background: #facc15; color: #111827; padding: 6px 14px; border-radius: 10px; font-size: 22px; font-weight: 900; letter-spacing: 3px; }
-    
-    .captain-card { background: #111827; padding: 12px 14px; border-radius: 12px; margin-bottom: 10px; display: none; border: 1px solid #374151; }
+    .status-banner { background: #dcfce7; color: #166534; padding: 9px; border-radius: 10px; font-weight: 800; text-align: center; margin-bottom: 10px; font-size: 13.5px; border: 1px solid #86efac; }
+    .otp-row { display: flex; justify-content: space-between; align-items: center; background: #f3f4f6; padding: 8px 12px; border-radius: 12px; margin-bottom: 8px; }
+    .otp-badge { background: #111827; color: #facc15; padding: 5px 12px; border-radius: 10px; font-size: 20px; font-weight: 900; letter-spacing: 3px; }
+    .captain-card { background: #f8fafc; padding: 10px 12px; border-radius: 12px; margin-bottom: 8px; display: none; border: 1px solid #cbd5e1; }
     .cap-top { display: flex; justify-content: space-between; align-items: center; }
-    .call-btn { background: #22c55e; color: #052e16; text-decoration: none; padding: 6px 12px; border-radius: 8px; font-weight: 800; font-size: 13px; }
-    
-    .btn-cancel { width: 100%; padding: 11px; background: #dc2626; color: #fff; border: none; border-radius: 10px; font-weight: bold; font-size: 14px; cursor: pointer; }
+    .call-btn { background: #16a34a; color: #fff; text-decoration: none; padding: 6px 12px; border-radius: 8px; font-weight: 800; font-size: 13px; }
+    .btn-cancel { width: 100%; padding: 10px; background: #ef4444; color: #fff; border: none; border-radius: 10px; font-weight: bold; font-size: 13px; cursor: pointer; }
   </style>
 </head>
 <body>
 
-  <!-- Top Header -->
-  <div class="header">
-    <div class="brand">SM Ride <span>AONLA</span></div>
-    <div class="header-right">
-      <div class="nearby-pill" id="nearby-count">बाइक खोज रहे हैं...</div>
-      <button class="logout-btn" id="logout-btn" onclick="logoutUser()">बदलें</button>
-    </div>
-  </div>
-
   <!-- 1. Customer Login Screen -->
   <div id="auth-screen">
-    <div class="card">
+    <div class="auth-card">
       <h2>SM Ride आंवला में स्वागत है</h2>
-      <p>आंवला की हर गली, मोहल्ले, कॉलेज, तहसील और स्टेशन के लिए तेज़ बाइक टैक्सी</p>
+      <p>आंवला की हर दुकान, गली, मोहल्ले, कॉलेज और स्टेशन के लिए तेज़ बाइक टैक्सी</p>
       <input type="text" id="u-name" placeholder="आपका पूरा नाम" />
       <input type="tel" id="u-phone" placeholder="मोबाइल नंबर (10 अंक)" maxlength="10" />
       <button class="btn-yellow" id="login-btn" onclick="loginCustomer()">राइड बुक करें ➔</button>
     </div>
   </div>
 
-  <!-- 2. Main Booking & Live Map Screen -->
+  <!-- 2. Google-Maps-Style Full Screen App -->
   <div id="app-screen">
-    <button class="gps-recenter" title="मेरी लोकेशन" onclick="recenterGPS()">🎯</button>
+    <!-- Full Screen Map -->
     <div id="map"></div>
 
+    <!-- Top Floating Search Card (Like Screenshot 2) -->
+    <div class="top-floating-wrap" id="top-search-wrap">
+      <div class="top-status-bar">
+        <div class="brand-tag">SM Ride <span>AONLA</span></div>
+        <div class="pill-group">
+          <div class="nearby-pill" id="nearby-count">बाइक खोज रहे हैं...</div>
+          <button class="mini-btn" onclick="logoutUser()">बदलें</button>
+        </div>
+      </div>
+
+      <div class="search-card">
+        <div class="route-row">
+          <div class="dot-blue"></div>
+          <div class="pickup-text" id="pickup-label">Your location (आपकी लोकेशन)</div>
+        </div>
+        <div class="route-divider"></div>
+        <div class="route-row">
+          <div class="pin-red">📍</div>
+          <div class="drop-input-wrap">
+            <input
+              type="text"
+              id="drop-input"
+              placeholder="कहाँ जाना है? दुकान, गली, स्टेशन लिखें या मैप टच करें"
+              oninput="handleTypingSearch(this.value)"
+              onfocus="handleTypingSearch(this.value)"
+              autocomplete="off"
+            />
+            <button class="icon-action" id="clear-btn" style="display:none;" onclick="clearDropInput()">✕</button>
+            <button class="icon-action" id="search-btn" onclick="searchDropLocation()">खोजें</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Autocomplete Dropdown -->
+      <div id="suggestions-box"></div>
+
+      <!-- 1-Tap Aonla Quick Places -->
+      <div class="quick-chips">
+        <button class="chip-btn" onclick="selectPreset(0)">🚉 आंवला रेलवे स्टेशन</button>
+        <button class="chip-btn" onclick="selectPreset(1)">🏛️ तहसील आंवला</button>
+        <button class="chip-btn" onclick="selectPreset(2)">🎓 डिग्री कॉलेज</button>
+        <button class="chip-btn" onclick="selectPreset(3)">🏫 इंटर कॉलेज</button>
+        <button class="chip-btn" onclick="selectPreset(4)">🛍️ मेन मार्केट / चौक</button>
+        <button class="chip-btn" onclick="selectPreset(5)">🏥 सरकारी अस्पताल</button>
+        <button class="chip-btn" onclick="selectPreset(6)">🏭 IFFCO टाउनशिप</button>
+        <button class="chip-btn" onclick="selectPreset(7)">🚌 बस स्टैंड</button>
+      </div>
+    </div>
+
+    <!-- Right Floating Map Buttons (Satellite Toggle + My Location) -->
+    <div class="map-side-btns">
+      <button class="fab-btn" id="layer-btn" title="Satellite / Map" onclick="toggleMapLayer()">🛰️</button>
+      <button class="fab-btn" title="मेरी लोकेशन" onclick="recenterGPS()">🎯</button>
+    </div>
+
+    <!-- Compact White Bottom Bar -->
     <div class="bottom-sheet">
-      <!-- Stage A: Location & Fare Selection -->
+      <div class="sheet-handle"></div>
+
+      <!-- Stage A: Booking -->
       <div id="booking-panel">
-        <!-- Live Autocomplete List -->
-        <div id="suggestions-box"></div>
-
-        <!-- 1-Tap Aonla Popular Destinations -->
-        <div class="quick-chips">
-          <button class="chip-btn" onclick="selectPreset(0)">🚉 आंवला रेलवे स्टेशन</button>
-          <button class="chip-btn" onclick="selectPreset(1)">🏛️ तहसील आंवला</button>
-          <button class="chip-btn" onclick="selectPreset(2)">🎓 डिग्री कॉलेज</button>
-          <button class="chip-btn" onclick="selectPreset(3)">🏫 इंटर कॉलेज</button>
-          <button class="chip-btn" onclick="selectPreset(4)">🛍️ मेन मार्केट / चौक</button>
-          <button class="chip-btn" onclick="selectPreset(5)">🏥 सरकारी अस्पताल</button>
-          <button class="chip-btn" onclick="selectPreset(6)">🏭 IFFCO टाउनशिप</button>
-          <button class="chip-btn" onclick="selectPreset(7)">🚌 बस स्टैंड आंवला</button>
+        <div class="helper-hint" id="helper-hint">
+          👆 मैप पर दिख रही किसी भी दुकान, गली या जगह पर टच करके Drop चुनें
         </div>
 
-        <div class="loc-box">
-          <span id="pickup-label">🟢 Pickup: आपकी वर्तमान GPS लोकेशन</span>
-        </div>
-        
-        <div class="loc-box drop-box">
-          <span>🔴</span>
-          <input
-            type="text"
-            id="drop-input"
-            placeholder="गली, मोहल्ला, कॉलेज, तहसील या स्टेशन लिखें..."
-            oninput="handleTypingSearch(this.value)"
-            onfocus="handleTypingSearch(this.value)"
-            autocomplete="off"
-          />
-          <button class="clear-btn" id="clear-btn" onclick="clearDropInput()">✕</button>
-          <button class="search-btn" id="search-btn" onclick="searchDropLocation()">खोजें</button>
-        </div>
-        <div style="font-size:11px; color:#9ca3af; margin-bottom:6px;">
-          💡 टिप: ऊपर बटन दबाएं, नाम लिखें या सीधे मैप पर टच करके पिन लगाएं।
-        </div>
-
-        <div class="fare-card" id="fare-card">
+        <div class="fare-row" id="fare-card">
           <div>
-            <div style="font-weight:bold; font-size:15px;">🏍️ SM Bike Taxi</div>
-            <div style="font-size:12px; color:#9ca3af;" id="trip-distance">दूरी: 0 km • तेज़ पिकअप</div>
+            <div style="font-weight:800; font-size:15px;">🏍️ SM Bike Taxi (Two-wheeler)</div>
+            <div style="font-size:12px; color:#4b5563; margin-top:2px;" id="trip-distance">दूरी: 0 km • समय: 0 min</div>
           </div>
           <div class="fare-price" id="trip-fare">₹0</div>
         </div>
 
-        <button class="btn-yellow" id="book-btn" style="display:none;" onclick="bookRide()">🚀 BOOK SM RIDE</button>
+        <button class="btn-book" id="book-btn" onclick="bookRide()">🚀 BOOK SM RIDE</button>
       </div>
 
-      <!-- Stage B: Live Ride Tracking -->
+      <!-- Stage B: Active Ride Tracking -->
       <div id="tracking-panel">
         <div class="status-banner" id="ride-status-text">🔍 नज़दीकी कैप्टन ढूंढ रहे हैं...</div>
         
         <div class="otp-row">
           <div>
-            <div style="font-size:12px; color:#9ca3af;">राइड शुरू करने का OTP</div>
-            <div style="font-size:14px; font-weight:bold; color:#fff; margin-top:2px;" id="track-fare">किराया: ₹0 (Cash/UPI)</div>
+            <div style="font-size:11px; color:#6b7280; font-weight:700;">राइड शुरू करने का OTP</div>
+            <div style="font-size:13.5px; font-weight:800; color:#111827;" id="track-fare">किराया: ₹0 (Cash/UPI)</div>
           </div>
           <div class="otp-badge" id="ride-otp-display">----</div>
         </div>
@@ -167,10 +326,10 @@
         <div class="captain-card" id="captain-card">
           <div class="cap-top">
             <div>
-              <div style="font-weight:bold; color:#facc15; font-size:16px;" id="cap-name">Captain Name</div>
-              <div style="font-size:13px; color:#d1d5db; margin-top:3px;" id="cap-bike">बाइक: -- | नंबर: --</div>
+              <div style="font-weight:800; color:#111827; font-size:15px;" id="cap-name">Captain Name</div>
+              <div style="font-size:12px; color:#4b5563; margin-top:2px;" id="cap-bike">बाइक: -- | नंबर: --</div>
             </div>
-            <a href="#" id="cap-call-link" class="call-btn">📞 कॉल</a>
+            <a href="#" id="cap-call-link" class="call-btn">📞 कॉल करें</a>
           </div>
         </div>
 
@@ -185,7 +344,7 @@
     const SUPABASE_KEY = 'sb_publishable_ErHpXbTw4GTcBDdI2cERTg_B5kxVlS8';
     const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-    // ================= AONLA (BAREILLY, UP) CORE DIRECTORY =================
+    // ================= AONLA (BAREILLY, UP) DIRECTORY =================
     const AONLA_LAT = 28.2757;
     const AONLA_LNG = 79.1603;
 
@@ -198,7 +357,7 @@
       { lat: 28.2779, lng: 79.1625, title: 'CHC Govt. Hospital Aonla (सरकारी अस्पताल)', subtitle: '🏥 Community Health Center, Aonla', searchBlob: 'chc government hospital haspatal aspatal aonla' },
       { lat: 28.2215, lng: 79.1765, title: 'IFFCO Township & Plant Aonla (इफको)', subtitle: '🏭 IFFCO Aonla, Bareilly', searchBlob: 'iffco ifco township plant colony aonla' },
       { lat: 28.2748, lng: 79.1592, title: 'Bus Stand Aonla (बस स्टैंड आंवला)', subtitle: '🚌 Roadways Bus Stand, Aonla', searchBlob: 'bus stand roadways adda aonla' },
-      { lat: 28.2792, lng: 79.1638, title: 'Budaun Road / Pakka Katra Mohalla (पक्का कटरा)', subtitle: '🏘️ Mohalla, Aonla', searchBlob: 'pakka katra mohalla mahola budaun road aonla' },
+      { lat: 28.2792, lng: 79.1638, title: 'Pakka Katra Mohalla / Budaun Road (पक्का कटरा)', subtitle: '🏘️ Mohalla, Aonla', searchBlob: 'pakka katra mohalla mahola budaun road aonla' },
       { lat: 28.2731, lng: 79.1565, title: 'Kila / Ganj Mohalla Aonla (किला / गंज मोहल्ला)', subtitle: '🏘️ Mohalla, Aonla', searchBlob: 'kila qila ganj mohalla mahola aonla' },
       { lat: 28.2770, lng: 79.1655, title: 'Bareilly Road / Ramnagar Road Aonla', subtitle: '🛣️ Main Road, Aonla', searchBlob: 'bareilly road ramnagar road chauraha aonla' },
       { lat: 28.3665, lng: 79.1332, title: 'Ramnagar / Ahichchhatra Jain Mandir', subtitle: '🛕 Ramnagar, Aonla Tehsil', searchBlob: 'ramnagar ahichchhatra jain mandir fort aonla' },
@@ -207,7 +366,8 @@
     ];
 
     let currentUser = null;
-    let map, pickupMarker, dropMarker, routeLine, liveCaptainMarker;
+    let map, streetLayer, hybridLayer, isSatellite = false;
+    let pickupMarker, dropMarker, routeLineOuter, routeLineInner, routeBadgeMarker, liveCaptainMarker;
     let pickupLat = AONLA_LAT, pickupLng = AONLA_LNG;
     let dropLat = null, dropLng = null;
     let calcDistance = 0, calcFare = 0;
@@ -217,7 +377,7 @@
     let typingTimer = null;
     let aonlaPlacesCache = [...AONLA_BUILT_IN_PLACES];
 
-    // 1. Login / Auto-Register Customer
+    // 1. Login / Auto-Register
     async function loginCustomer() {
       const name = document.getElementById('u-name').value.trim();
       const phone = document.getElementById('u-phone').value.trim();
@@ -285,33 +445,54 @@
       }
     };
 
-    // 2. Initialize Map on Aonla + Preload Extra OSM Streets & Mohallas
+    // 2. Initialize Detailed Google-Style Map (Shows Shops, Clinics, Streets in Hindi & English)
     async function startCustomerApp() {
       document.getElementById('auth-screen').style.display = 'none';
-      document.getElementById('app-screen').style.display = 'flex';
-      document.getElementById('logout-btn').style.display = 'block';
+      document.getElementById('app-screen').style.display = 'block';
 
-      map = L.map('map').setView([pickupLat, pickupLng], 15);
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap'
+      map = L.map('map', { zoomControl: false }).setView([pickupLat, pickupLng], 16);
+
+      // Detailed Google Streets Layer (Shows local shops, hospitals, lanes, Hindi/English labels like Screenshot 2)
+      streetLayer = L.tileLayer('https://{s}.google.com/vt/lyrs=m&hl=hi&x={x}&y={y}&z={z}', {
+        maxZoom: 20,
+        subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
+        attribution: '© Map Data'
       }).addTo(map);
+
+      // Satellite + Labels Layer
+      hybridLayer = L.tileLayer('https://{s}.google.com/vt/lyrs=y&hl=hi&x={x}&y={y}&z={z}', {
+        maxZoom: 20,
+        subdomains: ['mt0', 'mt1', 'mt2', 'mt3']
+      });
+
       captainMarkersLayer.addTo(map);
 
-      pickupMarker = L.marker([pickupLat, pickupLng])
+      const blueDotIcon = L.divIcon({
+        className: '',
+        html: '<div style="width:18px;height:18px;background:#2563eb;border:3px solid #fff;border-radius:50%;box-shadow:0 0 10px rgba(37,99,235,0.8);"></div>',
+        iconSize: [18, 18],
+        iconAnchor: [9, 9]
+      });
+
+      pickupMarker = L.marker([pickupLat, pickupLng], { icon: blueDotIcon })
         .addTo(map)
-        .bindPopup('🟢 आपकी Pickup लोकेशन (आंवला)')
-        .openPopup();
+        .bindPopup('🔵 आपकी Pickup लोकेशन');
 
       preloadAonlaLocalPlaces();
 
-      map.on('click', (e) => {
+      // Tap anywhere on map (on any shop/street/mohalla) to set Drop
+      map.on('click', async (e) => {
         if (activeRide) return;
         document.getElementById('suggestions-box').style.display = 'none';
-        setDropPoint(
-          e.latlng.lat,
-          e.latlng.lng,
-          `आंवला लोकेशन (${e.latlng.lat.toFixed(4)}, ${e.latlng.lng.toFixed(4)})`
-        );
+        const lat = e.latlng.lat;
+        const lng = e.latlng.lng;
+        setDropPoint(lat, lng, `चुनी हुई लोकेशन (${lat.toFixed(4)}, ${lng.toFixed(4)})`);
+
+        // Automatically fetch the exact shop/street/mohalla name where user tapped
+        const readableName = await reverseGeocodeName(lat, lng);
+        if (readableName && dropLat === lat && dropLng === lng) {
+          document.getElementById('drop-input').value = readableName;
+        }
       });
 
       if (navigator.geolocation) {
@@ -320,11 +501,11 @@
             pickupLat = pos.coords.latitude;
             pickupLng = pos.coords.longitude;
             pickupMarker.setLatLng([pickupLat, pickupLng]);
-            map.setView([pickupLat, pickupLng], 15);
+            map.setView([pickupLat, pickupLng], 16);
             loadNearbyCaptains();
           },
           () => {
-            document.getElementById('pickup-label').innerText = '🟢 Pickup: आंवला सेंटर (GPS चालू करें)';
+            document.getElementById('pickup-label').innerText = 'आंवला सेंटर (GPS चालू करें)';
             loadNearbyCaptains();
           },
           { enableHighAccuracy: true }
@@ -349,6 +530,34 @@
       setInterval(() => {
         if (!activeRide) loadNearbyCaptains();
       }, 7000);
+    }
+
+    function toggleMapLayer() {
+      isSatellite = !isSatellite;
+      const btn = document.getElementById('layer-btn');
+      if (isSatellite) {
+        map.removeLayer(streetLayer);
+        hybridLayer.addTo(map);
+        btn.innerText = '🗺️';
+      } else {
+        map.removeLayer(hybridLayer);
+        streetLayer.addTo(map);
+        btn.innerText = '🛰️';
+      }
+    }
+
+    async function reverseGeocodeName(lat, lng) {
+      try {
+        const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
+        const data = await res.json();
+        if (data && data.address) {
+          const a = data.address;
+          const parts = [a.amenity || a.shop || a.building || a.road, a.neighbourhood || a.suburb, a.village || a.town || a.city]
+            .filter((v, i, arr) => v && arr.indexOf(v) === i);
+          if (parts.length > 0) return parts.join(', ');
+        }
+      } catch (e) {}
+      return null;
     }
 
     async function preloadAonlaLocalPlaces() {
@@ -445,7 +654,7 @@
       }
     }
 
-    // 4. Smart Hindi/Hinglish Spelling Fixer (Includes railbay, railbe, tahsil, etc.)
+    // 4. Smart Hindi/Hinglish Spelling Fixer
     function fixCommonTypos(text) {
       return text
         .replace(/railbay|ralbay|relbay|railbe|relwe|relway|ralway|railwey/gi, 'railway')
@@ -489,7 +698,6 @@
       const lowerCleaned = cleaned.toLowerCase();
       let places = [];
 
-      // Step 1: Instant match from Aonla built-in + cached directory
       const words = lowerCleaned.split(/\s+/).filter((w) => w.length > 1 && w !== 'aonla');
       aonlaPlacesCache.forEach((item) => {
         const isMatch = words.length > 0
@@ -498,7 +706,6 @@
         if (isMatch) places.push(item);
       });
 
-      // Step 2: Photon API strictly filtered within 60km of Aonla (Blocks Delhi/Haldwani)
       const queryWithAonla = lowerCleaned.includes('aonla') ? cleaned : `${cleaned} Aonla`;
       try {
         const photonUrl = `https://photon.komoot.io/api/?q=${encodeURIComponent(queryWithAonla)}&lat=${AONLA_LAT}&lon=${AONLA_LNG}&limit=10`;
@@ -508,7 +715,7 @@
           pJson.features.forEach((f) => {
             const pLat = f.geometry.coordinates[1];
             const pLng = f.geometry.coordinates[0];
-            if (getDistanceKm(AONLA_LAT, AONLA_LNG, pLat, pLng) > 60) return; // Ignore far cities like Delhi/Haldwani
+            if (getDistanceKm(AONLA_LAT, AONLA_LNG, pLat, pLng) > 60) return;
 
             const p = f.properties || {};
             const title = p.name || p.street || p.village || p.town || p.city || cleaned;
@@ -526,7 +733,6 @@
         }
       } catch (e) {}
 
-      // Step 3: Nominatim Bounded Search inside Aonla Tehsil Box
       if (places.length < 4) {
         try {
           const nomUrl = `https://nominatim.openstreetmap.org/search?format=json&countrycodes=in&viewbox=79.00,28.12,79.32,28.42&bounded=1&q=${encodeURIComponent(cleaned)}&limit=6`;
@@ -555,13 +761,13 @@
 
     async function fetchLiveSuggestions(rawQuery) {
       const box = document.getElementById('suggestions-box');
-      box.innerHTML = '<div class="sug-item"><span class="sug-sub">🔍 आंवला में लोकेशन खोज रहे हैं...</span></div>';
+      box.innerHTML = '<div class="sug-item"><div class="sug-sub">🔍 आंवला में लोकेशन खोज रहे हैं...</div></div>';
       box.style.display = 'block';
 
       let places = await queryAonlaPlaces(rawQuery);
 
       if (places.length === 0) {
-        box.innerHTML = '<div class="sug-item"><span class="sug-sub">यह गली/नाम नहीं मिला — सीधे मैप पर टच करके पिन लगाएं</span></div>';
+        box.innerHTML = '<div class="sug-item"><div class="sug-sub">यह नाम नहीं मिला — सीधे मैप पर दुकान/गली पर टच करें</div></div>';
         return;
       }
 
@@ -591,14 +797,14 @@
 
       if (places.length === 0) {
         setDropPoint(AONLA_LAT, AONLA_LNG, `${query} (आंवला)`);
-        alert(`📍 मैप आंवला पर सेट कर दिया गया है! अपनी सटीक गली या दुकान पर लाल पिन को उंगली से खिसका (Drag) लें।`);
+        alert('📍 मैप आंवला पर सेट कर दिया गया है! अपनी सटीक दुकान या गली पर लाल पिन को उंगली से खिसका लें।');
         return;
       }
 
       setDropPoint(places[0].lat, places[0].lng, places[0].title);
     }
 
-    // 5. Set Drop Location, Draw Road Route & Calculate Fare
+    // 5. Set Drop Location, Draw Bold Blue Route (Like Screenshot 2) & Floating Time Pill
     async function setDropPoint(lat, lng, label) {
       dropLat = lat;
       dropLng = lng;
@@ -610,19 +816,23 @@
       } else {
         dropMarker = L.marker([lat, lng], { draggable: true })
           .addTo(map)
-          .bindPopup('🔴 Drop लोकेशन (गली/दुकान के लिए पिन खिसकाएं)');
+          .bindPopup('🔴 Drop लोकेशन (खिसकाकर सही जगह सेट करें)');
 
-        dropMarker.on('dragend', (e) => {
+        dropMarker.on('dragend', async (e) => {
           const pos = e.target.getLatLng();
-          setDropPoint(pos.lat, pos.lng, `चुनी हुई गली/स्थान (${pos.lat.toFixed(4)}, ${pos.lng.toFixed(4)})`);
+          setDropPoint(pos.lat, pos.lng, `पिन लोकेशन (${pos.lat.toFixed(4)}, ${pos.lng.toFixed(4)})`);
+          const name = await reverseGeocodeName(pos.lat, pos.lng);
+          if (name) document.getElementById('drop-input').value = name;
         });
       }
 
       const straightKm = getDistanceKm(pickupLat, pickupLng, dropLat, dropLng);
       calcDistance = Math.max(1.0, +(straightKm * 1.25).toFixed(2));
       calcFare = Math.max(20, Math.round(15 + calcDistance * 7));
-      updateFareUI([[pickupLat, pickupLng], [dropLat, dropLng]], true);
+      const estMins = Math.max(3, Math.round(calcDistance * 2.5));
+      updateFareUI([[pickupLat, pickupLng], [dropLat, dropLng]], estMins);
 
+      // Real Road Route via OSRM
       try {
         const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${pickupLng},${pickupLat};${dropLng},${dropLat}?overview=full&geometries=geojson`;
         const rRes = await fetch(osrmUrl);
@@ -632,21 +842,39 @@
           const roadCoords = route.geometry.coordinates.map((c) => [c[1], c[0]]);
           calcDistance = Math.max(1.0, +(route.distance / 1000).toFixed(2));
           calcFare = Math.max(20, Math.round(15 + calcDistance * 7));
-          updateFareUI(roadCoords, false);
+          const roadMins = Math.max(3, Math.round(route.duration / 60));
+          updateFareUI(roadCoords, roadMins);
         }
       } catch (e) {}
     }
 
-    function updateFareUI(coords, isDashed) {
-      if (routeLine) map.removeLayer(routeLine);
-      routeLine = L.polyline(coords, {
-        color: '#facc15',
-        weight: 5,
-        dashArray: isDashed ? '8, 8' : null
+    function updateFareUI(coords, mins) {
+      if (routeLineOuter) map.removeLayer(routeLineOuter);
+      if (routeLineInner) map.removeLayer(routeLineInner);
+      if (routeBadgeMarker) map.removeLayer(routeBadgeMarker);
+
+      // Bold Google-Maps-Style Blue Route Line
+      routeLineOuter = L.polyline(coords, { color: '#1e3a8a', weight: 8, opacity: 0.9 }).addTo(map);
+      routeLineInner = L.polyline(coords, { color: '#3b82f6', weight: 5, opacity: 1 }).addTo(map);
+
+      // Floating Time & Distance Pill on Route (Like "56 min" in Screenshot 2)
+      const midPoint = coords[Math.floor(coords.length / 2)];
+      routeBadgeMarker = L.marker(midPoint, {
+        icon: L.divIcon({
+          className: '',
+          html: `<div class="route-pill-marker">🏍️ ${mins} min • ${calcDistance} km</div>`,
+          iconSize: [125, 26],
+          iconAnchor: [62, 13]
+        })
       }).addTo(map);
 
-      map.fitBounds([[pickupLat, pickupLng], [dropLat, dropLng]], { padding: [50, 50] });
-      document.getElementById('trip-distance').innerText = `दूरी: ${calcDistance} km • आंवला बाइक टैक्सी`;
+      map.fitBounds([[pickupLat, pickupLng], [dropLat, dropLng]], {
+        paddingTopLeft: [40, 175],
+        paddingBottomRight: [40, 165]
+      });
+
+      document.getElementById('helper-hint').style.display = 'none';
+      document.getElementById('trip-distance').innerText = `दूरी: ${calcDistance} km • लगभग ${mins} मिनट`;
       document.getElementById('trip-fare').innerText = `₹${calcFare}`;
       document.getElementById('fare-card').style.display = 'flex';
       document.getElementById('book-btn').style.display = 'block';
@@ -802,24 +1030,19 @@
     function resetCustomerApp() {
       activeRide = null;
       if (ridePollTimer) clearInterval(ridePollTimer);
-      if (liveCaptainMarker) {
-        map.removeLayer(liveCaptainMarker);
-        liveCaptainMarker = null;
-      }
-      if (routeLine) {
-        map.removeLayer(routeLine);
-        routeLine = null;
-      }
-      if (dropMarker) {
-        map.removeLayer(dropMarker);
-        dropMarker = null;
-      }
+      if (liveCaptainMarker) { map.removeLayer(liveCaptainMarker); liveCaptainMarker = null; }
+      if (routeLineOuter) { map.removeLayer(routeLineOuter); routeLineOuter = null; }
+      if (routeLineInner) { map.removeLayer(routeLineInner); routeLineInner = null; }
+      if (routeBadgeMarker) { map.removeLayer(routeBadgeMarker); routeBadgeMarker = null; }
+      if (dropMarker) { map.removeLayer(dropMarker); dropMarker = null; }
+
       dropLat = null;
       dropLng = null;
       document.getElementById('drop-input').value = '';
       document.getElementById('clear-btn').style.display = 'none';
       document.getElementById('fare-card').style.display = 'none';
       document.getElementById('book-btn').style.display = 'none';
+      document.getElementById('helper-hint').style.display = 'block';
       document.getElementById('tracking-panel').style.display = 'none';
       document.getElementById('captain-card').style.display = 'none';
       document.getElementById('cancel-btn').style.display = 'block';
