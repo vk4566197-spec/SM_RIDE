@@ -36,10 +36,20 @@
     .gps-recenter { position: absolute; right: 14px; top: 14px; z-index: 999; background: #1f2937; color: #facc15; border: 2px solid #facc15; width: 42px; height: 42px; border-radius: 50%; font-size: 18px; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.5); }
 
     /* Bottom Sheet */
-    .bottom-sheet { background: #1f2937; padding: 16px; border-top-left-radius: 22px; border-top-right-radius: 22px; z-index: 1000; box-shadow: 0 -6px 24px rgba(0,0,0,0.6); }
+    .bottom-sheet { background: #1f2937; padding: 14px 16px 16px; border-top-left-radius: 22px; border-top-right-radius: 22px; z-index: 1000; box-shadow: 0 -6px 24px rgba(0,0,0,0.6); position: relative; }
+    
+    /* Live Suggestions Box (Opens above input so keyboard never hides it) */
+    #suggestions-box { display: none; background: #111827; border: 1.5px solid #facc15; border-radius: 12px; margin-bottom: 10px; max-height: 190px; overflow-y: auto; box-shadow: 0 -8px 20px rgba(0,0,0,0.6); }
+    .sug-item { padding: 10px 12px; border-bottom: 1px solid #1f2937; cursor: pointer; display: flex; flex-direction: column; gap: 2px; }
+    .sug-item:last-child { border-bottom: none; }
+    .sug-item:active { background: #374151; }
+    .sug-title { font-size: 14px; font-weight: 700; color: #facc15; }
+    .sug-sub { font-size: 11px; color: #9ca3af; }
+
     .loc-box { background: #111827; padding: 10px 12px; border-radius: 10px; margin-bottom: 8px; font-size: 13px; border-left: 4px solid #22c55e; display: flex; justify-content: space-between; align-items: center; }
     .drop-box { border-left-color: #ef4444; gap: 6px; }
     .drop-box input { margin-bottom: 0; border: none; padding: 4px; background: transparent; font-size: 14px; flex: 1; }
+    .clear-btn { background: none; border: none; color: #9ca3af; font-size: 16px; padding: 0 6px; cursor: pointer; display: none; }
     .search-btn { background: #374151; color: #facc15; border: none; padding: 7px 12px; border-radius: 8px; font-weight: bold; font-size: 13px; cursor: pointer; }
 
     .fare-card { display: none; background: #111827; border: 1.5px solid #facc15; padding: 12px 14px; border-radius: 12px; margin: 10px 0; justify-content: space-between; align-items: center; }
@@ -88,17 +98,28 @@
     <div class="bottom-sheet">
       <!-- Stage A: Location & Fare Selection -->
       <div id="booking-panel">
+        <!-- Autocomplete Suggestions List -->
+        <div id="suggestions-box"></div>
+
         <div class="loc-box">
           <span id="pickup-label">🟢 Pickup: आपकी वर्तमान GPS लोकेशन</span>
         </div>
         
         <div class="loc-box drop-box">
           <span>🔴</span>
-          <input type="text" id="drop-input" placeholder="कहाँ जाना है? लिखें या मैप पर टच करें" />
+          <input
+            type="text"
+            id="drop-input"
+            placeholder="कहाँ जाना है? गाँव, बाजार या जगह लिखें..."
+            oninput="handleTypingSearch(this.value)"
+            onfocus="handleTypingSearch(this.value)"
+            autocomplete="off"
+          />
+          <button class="clear-btn" id="clear-btn" onclick="clearDropInput()">✕</button>
           <button class="search-btn" id="search-btn" onclick="searchDropLocation()">खोजें</button>
         </div>
         <div style="font-size:11px; color:#9ca3af; margin-bottom:8px;">
-          💡 टिप: आप सीधे मैप पर कहीं भी टच करके अपनी Drop लोकेशन सेट कर सकते हैं।
+          💡 टिप: नाम लिखकर लिस्ट से चुनें, या सीधे मैप पर टच करके/पिन खिसकाकर लोकेशन सेट करें।
         </div>
 
         <div class="fare-card" id="fare-card">
@@ -153,6 +174,7 @@
     let activeRide = null;
     let captainMarkersLayer = L.layerGroup();
     let ridePollTimer = null;
+    let typingTimer = null;
 
     // 1. Login / Auto-Register Customer
     async function loginCustomer() {
@@ -243,10 +265,11 @@
       // Tap anywhere on map to set Drop point
       map.on('click', (e) => {
         if (activeRide) return;
+        document.getElementById('suggestions-box').style.display = 'none';
         setDropPoint(
           e.latlng.lat,
           e.latlng.lng,
-          `मैप लोकेशन (${e.latlng.lat.toFixed(4)}, ${e.latlng.lng.toFixed(4)})`
+          `चुनी हुई लोकेशन (${e.latlng.lat.toFixed(4)}, ${e.latlng.lng.toFixed(4)})`
         );
       });
 
@@ -323,55 +346,209 @@
       }
     }
 
-    // 4. Search Drop Location by Text
+    // 4. Smart Indian Spelling Fixer + Live Autocomplete Search (Small & Big Locations)
+    function fixCommonTypos(text) {
+      return text
+        .replace(/marcket|markit|mrkt/gi, 'market')
+        .replace(/bajar|bazar/gi, 'bazaar')
+        .replace(/chok|chawk/gi, 'chowk')
+        .replace(/stasion|stsn/gi, 'station')
+        .replace(/hospitel|haspatal/gi, 'hospital')
+        .replace(/coloni|calony/gi, 'colony')
+        .replace(/rod|rood/gi, 'road')
+        .replace(/gaav|gaon/gi, 'village')
+        .trim();
+    }
+
+    function clearDropInput() {
+      document.getElementById('drop-input').value = '';
+      document.getElementById('clear-btn').style.display = 'none';
+      document.getElementById('suggestions-box').style.display = 'none';
+    }
+
+    function handleTypingSearch(val) {
+      const cleanVal = val.trim();
+      document.getElementById('clear-btn').style.display = cleanVal.length > 0 ? 'block' : 'none';
+      if (typingTimer) clearTimeout(typingTimer);
+
+      if (cleanVal.length < 2) {
+        document.getElementById('suggestions-box').style.display = 'none';
+        return;
+      }
+
+      typingTimer = setTimeout(() => {
+        fetchLiveSuggestions(cleanVal);
+      }, 300);
+    }
+
+    async function queryPlacesAPI(rawQuery) {
+      const cleaned = fixCommonTypos(rawQuery);
+      let places = [];
+
+      // Engine 1: Photon API (Supports fuzzy typos + local GPS bias + villages/POIs)
+      try {
+        const photonUrl = `https://photon.komoot.io/api/?q=${encodeURIComponent(cleaned)}&lat=${pickupLat}&lon=${pickupLng}&limit=7`;
+        const pRes = await fetch(photonUrl);
+        const pJson = await pRes.json();
+        if (pJson && pJson.features) {
+          pJson.features.forEach((f) => {
+            const p = f.properties || {};
+            if (p.country && p.country !== 'India' && p.countrycode !== 'IN') return;
+            const title = p.name || p.street || p.village || p.town || p.city || cleaned;
+            const subParts = [p.street, p.locality, p.district, p.city || p.town || p.village, p.state]
+              .filter((v, i, arr) => v && v !== title && arr.indexOf(v) === i);
+            places.push({
+              lat: f.geometry.coordinates[1],
+              lng: f.geometry.coordinates[0],
+              title: title,
+              subtitle: subParts.join(', ') || 'India'
+            });
+          });
+        }
+      } catch (e) {}
+
+      // Engine 2: Nominatim India Fallback (For extra streets, landmarks & local areas)
+      if (places.length < 3) {
+        try {
+          const nomUrl = `https://nominatim.openstreetmap.org/search?format=json&countrycodes=in&q=${encodeURIComponent(cleaned)}&limit=5`;
+          const nRes = await fetch(nomUrl);
+          const nJson = await nRes.json();
+          if (Array.isArray(nJson)) {
+            nJson.forEach((item) => {
+              const parts = item.display_name.split(',');
+              const title = parts[0].trim();
+              const isDuplicate = places.some((existing) => existing.title.toLowerCase() === title.toLowerCase());
+              if (!isDuplicate) {
+                places.push({
+                  lat: parseFloat(item.lat),
+                  lng: parseFloat(item.lon),
+                  title: title,
+                  subtitle: parts.slice(1, 4).join(',').trim()
+                });
+              }
+            });
+          }
+        } catch (e) {}
+      }
+
+      return places;
+    }
+
+    async function fetchLiveSuggestions(rawQuery) {
+      const box = document.getElementById('suggestions-box');
+      box.innerHTML = '<div class="sug-item"><span class="sug-sub">🔍 आस-पास की जगहें खोज रहे हैं...</span></div>';
+      box.style.display = 'block';
+
+      let places = await queryPlacesAPI(rawQuery);
+
+      // If full phrase had too many local words (e.g. "Aonla main marcket"), try first 1-2 words ("Aonla")
+      if (places.length === 0 && rawQuery.includes(' ')) {
+        const shorterQuery = rawQuery.split(/\s+/).slice(0, 2).join(' ');
+        places = await queryPlacesAPI(shorterQuery);
+      }
+
+      if (places.length === 0) {
+        box.innerHTML = '<div class="sug-item"><span class="sug-sub">कोई नाम नहीं मिला — सीधे मैप पर टच करके पिन लगाएं</span></div>';
+        return;
+      }
+
+      box.innerHTML = '';
+      places.slice(0, 6).forEach((pl) => {
+        const div = document.createElement('div');
+        div.className = 'sug-item';
+        div.innerHTML = `<div class="sug-title">📍 ${pl.title}</div><div class="sug-sub">${pl.subtitle}</div>`;
+        div.onclick = () => {
+          box.style.display = 'none';
+          const fullLabel = pl.subtitle ? `${pl.title}, ${pl.subtitle.split(',')[0]}` : pl.title;
+          setDropPoint(pl.lat, pl.lng, fullLabel);
+        };
+        box.appendChild(div);
+      });
+    }
+
     async function searchDropLocation() {
       const query = document.getElementById('drop-input').value.trim();
       if (!query) return alert('कृपया जाने की जगह का नाम लिखें');
 
       const btn = document.getElementById('search-btn');
       btn.innerText = '...';
-      try {
-        const res = await fetch(
-          `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`
-        );
-        const results = await res.json();
-        btn.innerText = 'खोजें';
-        if (!results || results.length === 0) {
-          return alert('जगह नहीं मिली — कृपया सीधे मैप पर टच करके Drop चुनें।');
+      document.getElementById('suggestions-box').style.display = 'none';
+
+      let places = await queryPlacesAPI(query);
+
+      // Smart fallback: search main town/area name if exact shop/gali wasn't indexed
+      if (places.length === 0 && query.includes(' ')) {
+        const mainArea = query.split(/\s+/)[0];
+        places = await queryPlacesAPI(mainArea);
+        if (places.length > 0) {
+          btn.innerText = 'खोजें';
+          setDropPoint(places[0].lat, places[0].lng, `${query} (${places[0].title})`);
+          alert(`📍 "${places[0].title}" पर पिन लगा दिया गया है! सटीक दुकान/गली के लिए लाल पिन को उंगली से खिसका (Drag) सकते हैं।`);
+          return;
         }
-        setDropPoint(
-          parseFloat(results[0].lat),
-          parseFloat(results[0].lon),
-          results[0].display_name.split(',')[0]
-        );
-      } catch (e) {
-        btn.innerText = 'खोजें';
-        alert('नेटवर्क त्रुटि, कृपया मैप पर टच करके लोकेशन चुनें।');
       }
+
+      btn.innerText = 'खोजें';
+      if (places.length === 0) {
+        return alert('यह नाम मैप में नहीं मिला — कृपया सीधे मैप पर उंगली से टच करके Drop चुनें।');
+      }
+
+      const best = places[0];
+      const fullLabel = best.subtitle ? `${best.title}, ${best.subtitle.split(',')[0]}` : best.title;
+      setDropPoint(best.lat, best.lng, fullLabel);
     }
 
-    // 5. Set Drop Location, Draw Line & Calculate Fare
-    function setDropPoint(lat, lng, label) {
+    // 5. Set Drop Location, Draw Road Route & Calculate Fare
+    async function setDropPoint(lat, lng, label) {
       dropLat = lat;
       dropLng = lng;
       document.getElementById('drop-input').value = label;
+      document.getElementById('clear-btn').style.display = 'block';
 
-      if (dropMarker) dropMarker.setLatLng([lat, lng]);
-      else dropMarker = L.marker([lat, lng]).addTo(map).bindPopup('🔴 Drop लोकेशन');
+      if (dropMarker) {
+        dropMarker.setLatLng([lat, lng]);
+      } else {
+        dropMarker = L.marker([lat, lng], { draggable: true })
+          .addTo(map)
+          .bindPopup('🔴 Drop लोकेशन (सही जगह के लिए खिसकाएं)');
 
-      if (routeLine) map.removeLayer(routeLine);
-      routeLine = L.polyline(
-        [[pickupLat, pickupLng], [dropLat, dropLng]],
-        { color: '#facc15', weight: 5, dashArray: '8, 8' }
-      ).addTo(map);
+        // Allow dragging pin to exact house/shop
+        dropMarker.on('dragend', (e) => {
+          const pos = e.target.getLatLng();
+          setDropPoint(pos.lat, pos.lng, `पिन लोकेशन (${pos.lat.toFixed(4)}, ${pos.lng.toFixed(4)})`);
+        });
+      }
 
-      map.fitBounds([[pickupLat, pickupLng], [dropLat, dropLng]], { padding: [50, 50] });
-
-      // Fare Formula: ₹15 Base + ₹7 per km (Min ₹20)
+      // Instant initial calculation
       const straightKm = getDistanceKm(pickupLat, pickupLng, dropLat, dropLng);
       calcDistance = Math.max(1.0, +(straightKm * 1.25).toFixed(2));
       calcFare = Math.max(20, Math.round(15 + calcDistance * 7));
+      updateFareUI([[pickupLat, pickupLng], [dropLat, dropLng]], true);
 
+      // Fetch real road route & exact road km via OSRM
+      try {
+        const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${pickupLng},${pickupLat};${dropLng},${dropLat}?overview=full&geometries=geojson`;
+        const rRes = await fetch(osrmUrl);
+        const rData = await rRes.json();
+        if (rData && rData.routes && rData.routes.length > 0) {
+          const route = rData.routes[0];
+          const roadCoords = route.geometry.coordinates.map((c) => [c[1], c[0]]);
+          calcDistance = Math.max(1.0, +(route.distance / 1000).toFixed(2));
+          calcFare = Math.max(20, Math.round(15 + calcDistance * 7));
+          updateFareUI(roadCoords, false);
+        }
+      } catch (e) {}
+    }
+
+    function updateFareUI(coords, isDashed) {
+      if (routeLine) map.removeLayer(routeLine);
+      routeLine = L.polyline(coords, {
+        color: '#facc15',
+        weight: 5,
+        dashArray: isDashed ? '8, 8' : null
+      }).addTo(map);
+
+      map.fitBounds([[pickupLat, pickupLng], [dropLat, dropLng]], { padding: [50, 50] });
       document.getElementById('trip-distance').innerText = `दूरी: ${calcDistance} km • तेज़ पिकअप`;
       document.getElementById('trip-fare').innerText = `₹${calcFare}`;
       document.getElementById('fare-card').style.display = 'flex';
@@ -423,6 +600,7 @@
 
     function resumeTrackingUI(ride) {
       activeRide = ride;
+      document.getElementById('suggestions-box').style.display = 'none';
       document.getElementById('booking-panel').style.display = 'none';
       document.getElementById('tracking-panel').style.display = 'block';
       document.getElementById('ride-otp-display').innerText = activeRide.ride_otp;
@@ -542,6 +720,7 @@
       dropLat = null;
       dropLng = null;
       document.getElementById('drop-input').value = '';
+      document.getElementById('clear-btn').style.display = 'none';
       document.getElementById('fare-card').style.display = 'none';
       document.getElementById('book-btn').style.display = 'none';
       document.getElementById('tracking-panel').style.display = 'none';
