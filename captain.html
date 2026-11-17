@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>SM Ride - Captain App</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', sans-serif; }
+    body { background: #111827; color: #fff; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+    
+    .header { background: #1f2937; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #facc15; z-index: 1000; }
+    .brand { font-size: 20px; font-weight: 800; color: #facc15; }
+    .brand span { color: #fff; font-size: 12px; background: #374151; padding: 2px 8px; border-radius: 6px; margin-left: 6px; }
+    
+    .status-btn { padding: 8px 16px; border-radius: 20px; border: none; font-weight: bold; font-size: 14px; cursor: pointer; transition: 0.3s; }
+    .offline { background: #ef4444; color: white; }
+    .online { background: #22c55e; color: #052e16; box-shadow: 0 0 12px #22c55e; }
+
+    #auth-screen { padding: 24px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; justify-content: center; }
+    .card { background: #1f2937; padding: 20px; border-radius: 16px; border: 1px solid #374151; }
+    .card h2 { color: #facc15; margin-bottom: 6px; }
+    .card p { color: #9ca3af; font-size: 13px; margin-bottom: 16px; }
+    input { width: 100%; padding: 12px; margin-bottom: 12px; border-radius: 10px; border: 1px solid #4b5563; background: #111827; color: #fff; font-size: 15px; }
+    .btn-yellow { width: 100%; padding: 14px; background: #facc15; color: #111827; border: none; border-radius: 12px; font-weight: 800; font-size: 16px; cursor: pointer; }
+
+    #app-screen { display: none; flex-direction: column; flex: 1; position: relative; }
+    #map { flex: 1; width: 100%; z-index: 1; }
+
+    .bottom-panel { background: #1f2937; padding: 16px; border-top-left-radius: 20px; border-top-right-radius: 20px; z-index: 1000; box-shadow: 0 -4px 20px rgba(0,0,0,0.5); }
+    .stats-row { display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 14px; color: #d1d5db; }
+    .gps-badge { font-size: 12px; color: #34d399; background: #064e3b; padding: 4px 10px; border-radius: 8px; display: inline-block; margin-bottom: 8px; }
+
+    #ride-request-box { display: none; background: #fef08a; color: #111827; padding: 16px; border-radius: 16px; margin-bottom: 10px; animation: pulse 1.2s infinite; }
+    @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.02); } 100% { transform: scale(1); } }
+    .fare-tag { font-size: 24px; font-weight: 900; color: #15803d; }
+    .addr-line { font-size: 14px; margin: 6px 0; font-weight: 600; }
+    .btn-row { display: flex; gap: 10px; margin-top: 12px; }
+    .btn-accept { flex: 2; padding: 12px; background: #16a34a; color: #fff; border: none; border-radius: 10px; font-weight: bold; font-size: 16px; cursor: pointer; }
+    .btn-reject { flex: 1; padding: 12px; background: #dc2626; color: #fff; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; }
+
+    #active-ride-box { display: none; background: #111827; padding: 14px; border-radius: 14px; border: 1px solid #facc15; }
+    .otp-row { display: flex; gap: 8px; margin-top: 10px; }
+    .otp-row input { margin-bottom: 0; text-align: center; font-size: 18px; letter-spacing: 4px; font-weight: bold; }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <div class="brand">SM Ride <span>CAPTAIN</span></div>
+    <button id="online-toggle" class="status-btn offline" style="display:none;" onclick="toggleOnline()">OFFLINE</button>
+  </div>
+
+  <!-- Login / Registration -->
+  <div id="auth-screen">
+    <div class="card">
+      <h2>Captain Login / रजिस्ट्रेशन</h2>
+      <p>अपनी बाइक की डिटेल्स भरें और राइड लेना शुरू करें</p>
+      <input type="text" id="c-name" placeholder="पूरा नाम (जैसे: Rahul Kumar)" />
+      <input type="tel" id="c-phone" placeholder="मोबाइल नंबर (10 अंक)" maxlength="10" />
+      <input type="text" id="c-bike" placeholder="बाइक मॉडल (जैसे: Hero Splendor)" />
+      <input type="text" id="c-plate" placeholder="गाड़ी नंबर (जैसे: UP32 AB 1234)" />
+      <input type="text" id="c-dl" placeholder="ड्राइविंग लाइसेंस नंबर" />
+      <button class="btn-yellow" onclick="loginOrRegister()">आगे बढ़ें (Continue)</button>
+    </div>
+  </div>
+
+  <!-- Main Dashboard -->
+  <div id="app-screen">
+    <div id="map"></div>
+
+    <div class="bottom-panel">
+      <div class="gps-badge" id="gps-status">📡 GPS लोकेशन खोज रहे हैं...</div>
+      
+      <div class="stats-row">
+        <span id="captain-info">Captain: --</span>
+        <span>आज की कमाई: <strong style="color:#facc15;" id="today-earnings">₹0</strong></span>
+      </div>
+
+      <!-- Incoming Ride Popup -->
+      <div id="ride-request-box">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <strong>🔔 नई राइड रिक्वेस्ट!</strong>
+          <span class="fare-tag" id="req-fare">₹0</span>
+        </div>
+        <div class="addr-line" id="req-pickup">📍 Pickup: --</div>
+        <div class="addr-line" id="req-drop">🏁 Drop: --</div>
+        <div style="font-size:12px;" id="req-dist">दूरी: -- km</div>
+        <div class="btn-row">
+          <button class="btn-reject" onclick="rejectRide()">छोड़ें</button>
+          <button class="btn-accept" onclick="acceptRide()">✅ ACCEPT RIDE</button>
+        </div>
+      </div>
+
+      <!-- Active Ride Panel -->
+      <div id="active-ride-box">
+        <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
+          <strong style="color:#facc15;" id="ride-stage-title">पिकअप पर पहुँचें</strong>
+          <strong style="color:#22c55e;" id="active-fare">₹0</strong>
+        </div>
+        <div style="font-size:13px; color:#93c5fd; margin-bottom:4px;" id="customer-contact">कस्टमर: --</div>
+        <div style="font-size:13px; color:#d1d5db; margin-bottom:10px;" id="active-route">--</div>
+
+        <button id="btn-arrived" class="btn-yellow" onclick="markArrived()">📍 पिकअप लोकेशन पर पहुँच गया</button>
+
+        <div id="otp-section" style="display:none;">
+          <div style="font-size:12px; color:#facc15; margin-bottom:4px;">कस्टमर से 4-अंकों का OTP पूछकर डालें:</div>
+          <div class="otp-row">
+            <input type="number" id="otp-input" placeholder="1234" maxlength="4" />
+            <button class="btn-accept" onclick="verifyOtpAndStart()">Start Ride</button>
+          </div>
+        </div>
+
+        <button id="btn-complete" class="btn-accept" style="display:none; width:100%;" onclick="completeRide()">🏁 राइड पूरी करें & Cash लें</button>
+      </div>
+
+      <div id="idle-msg" style="text-align:center; color:#9ca3af; font-size:13px; padding:8px 0;">
+        राइड पाने के लिए ऊपर <strong>ONLINE</strong> बटन दबाएं।
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ================= SUPABASE CONFIG =================
+    const SUPABASE_URL = 'https://raeqoqgkwibazpfzlqby.supabase.co';
+    const SUPABASE_KEY = 'sb_publishable_ErHpXbTw4GTcBDdI2cERTg_B5kxVlS8';
+    const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    let currentCaptain = null;
+    let isOnline = false;
+    let map, marker;
+    let currentLat = 26.8467, currentLng = 80.9462;
+    let pendingRide = null;
+    let activeRide = null;
+    let earnings = 0;
+
+    async function loginOrRegister() {
+      const name = document.getElementById('c-name').value.trim();
+      const phone = document.getElementById('c-phone').value.trim();
+      const bike = document.getElementById('c-bike').value.trim() || 'Bike';
+      const plate = document.getElementById('c-plate').value.trim().toUpperCase();
+      const dl = document.getElementById('c-dl').value.trim();
+
+      if (!phone || phone.length < 10) return alert('कृपया सही 10 अंकों का मोबाइल नंबर डालें');
+
+      let { data: profile } = await db.from('profiles').select('*').eq('phone', phone).maybeSingle();
+
+      if (!profile) {
+        if (!name || !plate) return alert('नए रजिस्ट्रेशन के लिए नाम और गाड़ी नंबर ज़रूरी है');
+        const { data: newProf, error: pErr } = await db
+          .from('profiles')
+          .insert([{ full_name: name, phone: phone, role: 'captain' }])
+          .select().single();
+        if (pErr) return alert('Error: ' + pErr.message);
+        profile = newProf;
+
+        const { error: cErr } = await db.from('captain_details').insert([{
+          captain_id: profile.id,
+          vehicle_number: plate,
+          bike_model: bike,
+          dl_number: dl,
+          kyc_status: 'approved',
+          is_online: false
+        }]);
+        if (cErr) return alert('Captain Details Error: ' + cErr.message);
+      }
+
+      currentCaptain = profile;
+      localStorage.setItem('sm_captain_phone', phone);
+      startDashboard();
+    }
+
+    window.onload = async () => {
+      const savedPhone = localStorage.getItem('sm_captain_phone');
+      if (savedPhone) {
+        const { data: profile } = await db.from('profiles').select('*').eq('phone', savedPhone).maybeSingle();
+        if (profile) {
+          currentCaptain = profile;
+          startDashboard();
+        }
+      }
+    };
+
+    function startDashboard() {
+      document.getElementById('auth-screen').style.display = 'none';
+      document.getElementById('app-screen').style.display = 'flex';
+      document.getElementById('online-toggle').style.display = 'block';
+      document.getElementById('captain-info').innerText = `🏍️ ${currentCaptain.full_name}`;
+
+      map = L.map('map').setView([currentLat, currentLng], 15);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap'
+      }).addTo(map);
+      marker = L.marker([currentLat, currentLng]).addTo(map).bindPopup('आप यहाँ हैं').openPopup();
+
+      if (navigator.geolocation) {
+        navigator.geolocation.watchPosition(
+          (pos) => {
+            currentLat = pos.coords.latitude;
+            currentLng = pos.coords.longitude;
+            marker.setLatLng([currentLat, currentLng]);
+            map.setView([currentLat, currentLng], 16);
+            document.getElementById('gps-status').innerText = `📡 Live GPS: ${currentLat.toFixed(4)}, ${currentLng.toFixed(4)}`;
+            if (isOnline) syncLocationToSupabase();
+          },
+          () => {
+            document.getElementById('gps-status').innerText = '⚠️ GPS Permission दें (Demo लोकेशन चालू)';
+          },
+          { enableHighAccuracy: true }
+        );
+      }
+
+      listenForRides();
+    }
+
+    async function toggleOnline() {
+      isOnline = !isOnline;
+      const btn = document.getElementById('online-toggle');
+      btn.innerText = isOnline ? 'ONLINE 🟢' : 'OFFLINE';
+      btn.className = isOnline ? 'status-btn online' : 'status-btn offline';
+      document.getElementById('idle-msg').innerHTML = isOnline
+        ? '🔍 आस-पास के कस्टमर्स की राइड ढूंढ रहे हैं...'
+        : 'राइड पाने के लिए ऊपर <strong>ONLINE</strong> बटन दबाएं।';
+
+      await syncLocationToSupabase();
+    }
+
+    async function syncLocationToSupabase() {
+      if (!currentCaptain) return;
+      const pointWKT = `SRID=4326;POINT(${currentLng} ${currentLat})`;
+      await db.from('captain_details').update({
+        is_online: isOnline,
+        current_location: pointWKT,
+        updated_at: new Date().toISOString()
+      }).eq('captain_id', currentCaptain.id);
+    }
+
+    function listenForRides() {
+      db.channel('captain:rides')
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'rides' }, (payload) => {
+          if (isOnline && !activeRide && payload.new.status === 'searching') {
+            showRidePopup(payload.new);
+          }
+        })
+        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'rides' }, (payload) => {
+          if (activeRide && payload.new.id === activeRide.id && payload.new.status === 'cancelled') {
+            alert('❌ कस्टमर ने यह राइड कैंसिल कर दी है।');
+            resetCaptainUI();
+          }
+        })
+        .subscribe();
+
+      setInterval(async () => {
+        if (!isOnline) return;
+        if (activeRide) {
+          const { data } = await db.from('rides').select('status').eq('id', activeRide.id).maybeSingle();
+          if (data && data.status === 'cancelled') {
+            alert('❌ कस्टमर ने यह राइड कैंसिल कर दी है।');
+            resetCaptainUI();
+          }
+          return;
+        }
+        if (pendingRide) return;
+        const { data } = await db
+          .from('rides')
+          .select('*')
+          .eq('status', 'searching')
+          .order('created_at', { ascending: false })
+          .limit(1);
+        if (data && data.length > 0) showRidePopup(data[0]);
+      }, 3000);
+    }
+
+    function showRidePopup(ride) {
+      pendingRide = ride;
+      document.getElementById('req-fare').innerText = `₹${ride.fare_amount}`;
+      document.getElementById('req-pickup').innerText = `📍 Pickup: ${ride.pickup_address}`;
+      document.getElementById('req-drop').innerText = `🏁 Drop: ${ride.drop_address}`;
+      document.getElementById('req-dist').innerText = `दूरी: ${ride.distance_km} km`;
+      document.getElementById('ride-request-box').style.display = 'block';
+      document.getElementById('idle-msg').style.display = 'none';
+      if (navigator.vibrate) navigator.vibrate([300, 150, 300]);
+    }
+
+    function rejectRide() {
+      pendingRide = null;
+      document.getElementById('ride-request-box').style.display = 'none';
+      document.getElementById('idle-msg').style.display = 'block';
+    }
+
+    async function acceptRide() {
+      if (!pendingRide) return;
+      const { data, error } = await db
+        .from('rides')
+        .update({ captain_id: currentCaptain.id, status: 'accepted' })
+        .eq('id', pendingRide.id)
+        .eq('status', 'searching')
+        .select().single();
+
+      if (error || !data) {
+        alert('यह राइड किसी और कैप्टन ने ले ली है या कैंसिल हो गई है!');
+        rejectRide();
+        return;
+      }
+
+      activeRide = data;
+      pendingRide = null;
+
+      const { data: cust } = await db.from('profiles').select('full_name, phone').eq('id', activeRide.customer_id).maybeSingle();
+      document.getElementById('customer-contact').innerText = cust
+        ? `👤 कस्टमर: ${cust.full_name} (${cust.phone})`
+        : '👤 कस्टमर विवरण लोड हुआ';
+
+      document.getElementById('ride-request-box').style.display = 'none';
+      document.getElementById('active-ride-box').style.display = 'block';
+      document.getElementById('active-fare').innerText = `₹${activeRide.fare_amount}`;
+      document.getElementById('active-route').innerText = `${activeRide.pickup_address} ➔ ${activeRide.drop_address}`;
+    }
+
+    async function markArrived() {
+      await db.from('rides').update({ status: 'arrived' }).eq('id', activeRide.id);
+      document.getElementById('ride-stage-title').innerText = 'कस्टमर का इंतज़ार (OTP लें)';
+      document.getElementById('btn-arrived').style.display = 'none';
+      document.getElementById('otp-section').style.display = 'block';
+    }
+
+    async function verifyOtpAndStart() {
+      const enteredOtp = document.getElementById('otp-input').value.trim();
+      if (enteredOtp !== activeRide.ride_otp) {
+        return alert('❌ गलत OTP! कस्टमर के ऐप से सही 4-अंकों का OTP देखें।');
+      }
+      await db.from('rides').update({ status: 'ongoing' }).eq('id', activeRide.id);
+      document.getElementById('ride-stage-title').innerText = '🏍️ राइड चल रही है (Drop की ओर)';
+      document.getElementById('otp-section').style.display = 'none';
+      document.getElementById('btn-complete').style.display = 'block';
+    }
+
+    async function completeRide() {
+      await db.from('rides').update({
+        status: 'completed',
+        completed_at: new Date().toISOString()
+      }).eq('id', activeRide.id);
+
+      earnings += parseFloat(activeRide.fare_amount);
+      document.getElementById('today-earnings').innerText = `₹${earnings}`;
+      alert(`🎉 राइड पूरी हुई! कस्टमर से ₹${activeRide.fare_amount} कैश/UPI लें।`);
+      resetCaptainUI();
+    }
+
+    function resetCaptainUI() {
+      activeRide = null;
+      pendingRide = null;
+      document.getElementById('active-ride-box').style.display = 'none';
+      document.getElementById('ride-request-box').style.display = 'none';
+      document.getElementById('btn-arrived').style.display = 'block';
+      document.getElementById('otp-section').style.display = 'none';
+      document.getElementById('btn-complete').style.display = 'none';
+      document.getElementById('otp-input').value = '';
+      document.getElementById('ride-stage-title').innerText = 'पिकअप पर पहुँचें';
+      document.getElementById('idle-msg').style.display = 'block';
+    }
+  </script>
+</body>
+</html>
