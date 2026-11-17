@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>SM Ride - Bike Taxi</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Roboto, sans-serif; }
+    body { background: #111827; color: #fff; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+
+    /* Header */
+    .header { background: #facc15; color: #111827; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; z-index: 1000; box-shadow: 0 2px 10px rgba(0,0,0,0.4); }
+    .brand { font-size: 20px; font-weight: 900; letter-spacing: -0.5px; }
+    .header-right { display: flex; align-items: center; gap: 8px; }
+    .nearby-pill { background: #111827; color: #facc15; padding: 5px 10px; border-radius: 14px; font-size: 12px; font-weight: 700; }
+    .logout-btn { background: rgba(17,24,39,0.15); color: #111827; border: 1px solid #111827; padding: 4px 8px; border-radius: 8px; font-size: 11px; font-weight: bold; cursor: pointer; display: none; }
+
+    /* Auth Screen */
+    #auth-screen { padding: 24px; flex: 1; display: flex; flex-direction: column; justify-content: center; }
+    .card { background: #1f2937; padding: 24px; border-radius: 18px; border: 1px solid #374151; box-shadow: 0 10px 25px rgba(0,0,0,0.4); }
+    .card h2 { color: #facc15; margin-bottom: 6px; font-size: 22px; }
+    .card p { color: #9ca3af; font-size: 13px; margin-bottom: 18px; }
+    input { width: 100%; padding: 13px; margin-bottom: 12px; border-radius: 10px; border: 1px solid #4b5563; background: #111827; color: #fff; font-size: 15px; outline: none; }
+    input:focus { border-color: #facc15; }
+    .btn-yellow { width: 100%; padding: 14px; background: #facc15; color: #111827; border: none; border-radius: 12px; font-weight: 800; font-size: 16px; cursor: pointer; transition: 0.2s; }
+    .btn-yellow:active { transform: scale(0.98); }
+
+    /* App Layout */
+    #app-screen { display: none; flex-direction: column; flex: 1; position: relative; }
+    #map { flex: 1; width: 100%; z-index: 1; }
+
+    /* Recenter GPS Floating Button */
+    .gps-recenter { position: absolute; right: 14px; top: 14px; z-index: 999; background: #1f2937; color: #facc15; border: 2px solid #facc15; width: 42px; height: 42px; border-radius: 50%; font-size: 18px; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.5); }
+
+    /* Bottom Sheet */
+    .bottom-sheet { background: #1f2937; padding: 16px; border-top-left-radius: 22px; border-top-right-radius: 22px; z-index: 1000; box-shadow: 0 -6px 24px rgba(0,0,0,0.6); }
+    .loc-box { background: #111827; padding: 10px 12px; border-radius: 10px; margin-bottom: 8px; font-size: 13px; border-left: 4px solid #22c55e; display: flex; justify-content: space-between; align-items: center; }
+    .drop-box { border-left-color: #ef4444; gap: 6px; }
+    .drop-box input { margin-bottom: 0; border: none; padding: 4px; background: transparent; font-size: 14px; flex: 1; }
+    .search-btn { background: #374151; color: #facc15; border: none; padding: 7px 12px; border-radius: 8px; font-weight: bold; font-size: 13px; cursor: pointer; }
+
+    .fare-card { display: none; background: #111827; border: 1.5px solid #facc15; padding: 12px 14px; border-radius: 12px; margin: 10px 0; justify-content: space-between; align-items: center; }
+    .fare-price { font-size: 26px; font-weight: 900; color: #facc15; }
+
+    /* Tracking Panel */
+    #tracking-panel { display: none; }
+    .status-banner { background: #064e3b; color: #6ee7b7; padding: 11px; border-radius: 10px; font-weight: bold; text-align: center; margin-bottom: 12px; font-size: 14px; border: 1px solid #059669; }
+    .otp-row { display: flex; justify-content: space-between; align-items: center; background: #111827; padding: 10px 14px; border-radius: 12px; margin-bottom: 10px; }
+    .otp-badge { background: #facc15; color: #111827; padding: 6px 14px; border-radius: 10px; font-size: 22px; font-weight: 900; letter-spacing: 3px; }
+    
+    .captain-card { background: #111827; padding: 12px 14px; border-radius: 12px; margin-bottom: 10px; display: none; border: 1px solid #374151; }
+    .cap-top { display: flex; justify-content: space-between; align-items: center; }
+    .call-btn { background: #22c55e; color: #052e16; text-decoration: none; padding: 6px 12px; border-radius: 8px; font-weight: 800; font-size: 13px; }
+    
+    .btn-cancel { width: 100%; padding: 11px; background: #dc2626; color: #fff; border: none; border-radius: 10px; font-weight: bold; font-size: 14px; cursor: pointer; }
+  </style>
+</head>
+<body>
+
+  <!-- Top Header -->
+  <div class="header">
+    <div class="brand">SM Ride 🏍️</div>
+    <div class="header-right">
+      <div class="nearby-pill" id="nearby-count">बाइक खोज रहे हैं...</div>
+      <button class="logout-btn" id="logout-btn" onclick="logoutUser()">बदलें</button>
+    </div>
+  </div>
+
+  <!-- 1. Customer Login Screen -->
+  <div id="auth-screen">
+    <div class="card">
+      <h2>SM Ride में स्वागत है</h2>
+      <p>तेज़ और किफ़ायती बाइक टैक्सी बुक करने के लिए लॉगिन करें</p>
+      <input type="text" id="u-name" placeholder="आपका पूरा नाम" />
+      <input type="tel" id="u-phone" placeholder="मोबाइल नंबर (10 अंक)" maxlength="10" />
+      <button class="btn-yellow" id="login-btn" onclick="loginCustomer()">राइड बुक करें ➔</button>
+    </div>
+  </div>
+
+  <!-- 2. Main Booking & Live Map Screen -->
+  <div id="app-screen">
+    <button class="gps-recenter" title="मेरी लोकेशन" onclick="recenterGPS()">🎯</button>
+    <div id="map"></div>
+
+    <div class="bottom-sheet">
+      <!-- Stage A: Location & Fare Selection -->
+      <div id="booking-panel">
+        <div class="loc-box">
+          <span id="pickup-label">🟢 Pickup: आपकी वर्तमान GPS लोकेशन</span>
+        </div>
+        
+        <div class="loc-box drop-box">
+          <span>🔴</span>
+          <input type="text" id="drop-input" placeholder="कहाँ जाना है? लिखें या मैप पर टच करें" />
+          <button class="search-btn" id="search-btn" onclick="searchDropLocation()">खोजें</button>
+        </div>
+        <div style="font-size:11px; color:#9ca3af; margin-bottom:8px;">
+          💡 टिप: आप सीधे मैप पर कहीं भी टच करके अपनी Drop लोकेशन सेट कर सकते हैं।
+        </div>
+
+        <div class="fare-card" id="fare-card">
+          <div>
+            <div style="font-weight:bold; font-size:15px;">🏍️ SM Bike Taxi</div>
+            <div style="font-size:12px; color:#9ca3af;" id="trip-distance">दूरी: 0 km • तेज़ पिकअप</div>
+          </div>
+          <div class="fare-price" id="trip-fare">₹0</div>
+        </div>
+
+        <button class="btn-yellow" id="book-btn" style="display:none;" onclick="bookRide()">🚀 BOOK SM RIDE</button>
+      </div>
+
+      <!-- Stage B: Live Ride Tracking -->
+      <div id="tracking-panel">
+        <div class="status-banner" id="ride-status-text">🔍 नज़दीकी कैप्टन ढूंढ रहे हैं...</div>
+        
+        <div class="otp-row">
+          <div>
+            <div style="font-size:12px; color:#9ca3af;">राइड शुरू करने का OTP</div>
+            <div style="font-size:14px; font-weight:bold; color:#fff; margin-top:2px;" id="track-fare">किराया: ₹0 (Cash/UPI)</div>
+          </div>
+          <div class="otp-badge" id="ride-otp-display">----</div>
+        </div>
+
+        <div class="captain-card" id="captain-card">
+          <div class="cap-top">
+            <div>
+              <div style="font-weight:bold; color:#facc15; font-size:16px;" id="cap-name">Captain Name</div>
+              <div style="font-size:13px; color:#d1d5db; margin-top:3px;" id="cap-bike">बाइक: -- | नंबर: --</div>
+            </div>
+            <a href="#" id="cap-call-link" class="call-btn">📞 कॉल</a>
+          </div>
+        </div>
+
+        <button class="btn-cancel" id="cancel-btn" onclick="cancelRide()">राइड कैंसिल करें</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ================= SUPABASE CONFIGURATION =================
+    const SUPABASE_URL = 'https://raeqoqgkwibazpfzlqby.supabase.co';
+    const SUPABASE_KEY = 'sb_publishable_ErHpXbTw4GTcBDdI2cERTg_B5kxVlS8';
+    const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    let currentUser = null;
+    let map, pickupMarker, dropMarker, routeLine, liveCaptainMarker;
+    let pickupLat = 26.8467, pickupLng = 80.9462;
+    let dropLat = null, dropLng = null;
+    let calcDistance = 0, calcFare = 0;
+    let activeRide = null;
+    let captainMarkersLayer = L.layerGroup();
+    let ridePollTimer = null;
+
+    // 1. Login / Auto-Register Customer
+    async function loginCustomer() {
+      const name = document.getElementById('u-name').value.trim();
+      const phone = document.getElementById('u-phone').value.trim();
+      if (!phone || phone.length < 10) return alert('कृपया सही 10 अंकों का मोबाइल नंबर डालें');
+
+      const btn = document.getElementById('login-btn');
+      btn.innerText = 'लोड हो रहा है...';
+      btn.disabled = true;
+
+      let { data: profile, error: fetchErr } = await db
+        .from('profiles')
+        .select('*')
+        .eq('phone', phone)
+        .maybeSingle();
+
+      if (fetchErr) {
+        btn.innerText = 'राइड बुक करें ➔';
+        btn.disabled = false;
+        return alert('Database Error: ' + fetchErr.message);
+      }
+
+      if (!profile) {
+        if (!name) {
+          btn.innerText = 'राइड बुक करें ➔';
+          btn.disabled = false;
+          return alert('नए यूज़र के लिए कृपया अपना नाम लिखें');
+        }
+        const { data: newProf, error: insErr } = await db
+          .from('profiles')
+          .insert([{ full_name: name, phone: phone, role: 'customer' }])
+          .select()
+          .single();
+
+        if (insErr) {
+          btn.innerText = 'राइड बुक करें ➔';
+          btn.disabled = false;
+          return alert('Registration Error: ' + insErr.message);
+        }
+        profile = newProf;
+      }
+
+      currentUser = profile;
+      localStorage.setItem('sm_customer_phone', phone);
+      startCustomerApp();
+    }
+
+    function logoutUser() {
+      if (activeRide) return alert('चलती हुई राइड के दौरान अकाउंट नहीं बदल सकते।');
+      localStorage.removeItem('sm_customer_phone');
+      location.reload();
+    }
+
+    // Auto-Login on Page Load
+    window.onload = async () => {
+      const savedPhone = localStorage.getItem('sm_customer_phone');
+      if (savedPhone) {
+        const { data: profile } = await db
+          .from('profiles')
+          .select('*')
+          .eq('phone', savedPhone)
+          .maybeSingle();
+        if (profile) {
+          currentUser = profile;
+          startCustomerApp();
+        }
+      }
+    };
+
+    // 2. Initialize Map, GPS & Active Ride Recovery
+    async function startCustomerApp() {
+      document.getElementById('auth-screen').style.display = 'none';
+      document.getElementById('app-screen').style.display = 'flex';
+      document.getElementById('logout-btn').style.display = 'block';
+
+      map = L.map('map').setView([pickupLat, pickupLng], 15);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap'
+      }).addTo(map);
+      captainMarkersLayer.addTo(map);
+
+      pickupMarker = L.marker([pickupLat, pickupLng])
+        .addTo(map)
+        .bindPopup('🟢 आपकी Pickup लोकेशन')
+        .openPopup();
+
+      // Tap anywhere on map to set Drop point
+      map.on('click', (e) => {
+        if (activeRide) return;
+        setDropPoint(
+          e.latlng.lat,
+          e.latlng.lng,
+          `मैप लोकेशन (${e.latlng.lat.toFixed(4)}, ${e.latlng.lng.toFixed(4)})`
+        );
+      });
+
+      // Get Live GPS Position
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            pickupLat = pos.coords.latitude;
+            pickupLng = pos.coords.longitude;
+            pickupMarker.setLatLng([pickupLat, pickupLng]);
+            map.setView([pickupLat, pickupLng], 15);
+            loadNearbyCaptains();
+          },
+          () => {
+            document.getElementById('pickup-label').innerText = '🟢 Pickup: डिफ़ॉल्ट लोकेशन (GPS चालू करें)';
+            loadNearbyCaptains();
+          },
+          { enableHighAccuracy: true }
+        );
+      } else {
+        loadNearbyCaptains();
+      }
+
+      // Check if customer already has an unfinished ride
+      const { data: existingRide } = await db
+        .from('rides')
+        .select('*')
+        .eq('customer_id', currentUser.id)
+        .in('status', ['searching', 'accepted', 'arrived', 'ongoing'])
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (existingRide) {
+        resumeTrackingUI(existingRide);
+      }
+
+      setInterval(() => {
+        if (!activeRide) loadNearbyCaptains();
+      }, 7000);
+    }
+
+    function recenterGPS() {
+      if (!navigator.geolocation) return;
+      navigator.geolocation.getCurrentPosition((pos) => {
+        pickupLat = pos.coords.latitude;
+        pickupLng = pos.coords.longitude;
+        pickupMarker.setLatLng([pickupLat, pickupLng]);
+        map.setView([pickupLat, pickupLng], 16);
+        loadNearbyCaptains();
+      });
+    }
+
+    // 3. Load Online Captains Nearby
+    async function loadNearbyCaptains() {
+      const { data } = await db.rpc('find_nearby_captains', {
+        user_lat: pickupLat,
+        user_lng: pickupLng,
+        radius_meters: 5000
+      });
+
+      captainMarkersLayer.clearLayers();
+      const count = data ? data.length : 0;
+      document.getElementById('nearby-count').innerText = count > 0
+        ? `🏍️ ${count} बाइक उपलब्ध`
+        : 'कोई बाइक ऑनलाइन नहीं';
+
+      if (data) {
+        data.forEach((cap) => {
+          L.marker([cap.lat, cap.lng])
+            .addTo(captainMarkersLayer)
+            .bindPopup(`🏍️ ${cap.full_name} (${cap.vehicle_number})`);
+        });
+      }
+    }
+
+    // 4. Search Drop Location by Text
+    async function searchDropLocation() {
+      const query = document.getElementById('drop-input').value.trim();
+      if (!query) return alert('कृपया जाने की जगह का नाम लिखें');
+
+      const btn = document.getElementById('search-btn');
+      btn.innerText = '...';
+      try {
+        const res = await fetch(
+          `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`
+        );
+        const results = await res.json();
+        btn.innerText = 'खोजें';
+        if (!results || results.length === 0) {
+          return alert('जगह नहीं मिली — कृपया सीधे मैप पर टच करके Drop चुनें।');
+        }
+        setDropPoint(
+          parseFloat(results[0].lat),
+          parseFloat(results[0].lon),
+          results[0].display_name.split(',')[0]
+        );
+      } catch (e) {
+        btn.innerText = 'खोजें';
+        alert('नेटवर्क त्रुटि, कृपया मैप पर टच करके लोकेशन चुनें।');
+      }
+    }
+
+    // 5. Set Drop Location, Draw Line & Calculate Fare
+    function setDropPoint(lat, lng, label) {
+      dropLat = lat;
+      dropLng = lng;
+      document.getElementById('drop-input').value = label;
+
+      if (dropMarker) dropMarker.setLatLng([lat, lng]);
+      else dropMarker = L.marker([lat, lng]).addTo(map).bindPopup('🔴 Drop लोकेशन');
+
+      if (routeLine) map.removeLayer(routeLine);
+      routeLine = L.polyline(
+        [[pickupLat, pickupLng], [dropLat, dropLng]],
+        { color: '#facc15', weight: 5, dashArray: '8, 8' }
+      ).addTo(map);
+
+      map.fitBounds([[pickupLat, pickupLng], [dropLat, dropLng]], { padding: [50, 50] });
+
+      // Fare Formula: ₹15 Base + ₹7 per km (Min ₹20)
+      const straightKm = getDistanceKm(pickupLat, pickupLng, dropLat, dropLng);
+      calcDistance = Math.max(1.0, +(straightKm * 1.25).toFixed(2));
+      calcFare = Math.max(20, Math.round(15 + calcDistance * 7));
+
+      document.getElementById('trip-distance').innerText = `दूरी: ${calcDistance} km • तेज़ पिकअप`;
+      document.getElementById('trip-fare').innerText = `₹${calcFare}`;
+      document.getElementById('fare-card').style.display = 'flex';
+      document.getElementById('book-btn').style.display = 'block';
+    }
+
+    function getDistanceKm(lat1, lon1, lat2, lon2) {
+      const R = 6371;
+      const dLat = (lat2 - lat1) * Math.PI / 180;
+      const dLon = (lon2 - lon1) * Math.PI / 180;
+      const a =
+        Math.sin(dLat / 2) ** 2 +
+        Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) ** 2;
+      return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    }
+
+    // 6. Book Ride
+    async function bookRide() {
+      if (!dropLat || !dropLng) return alert('पहले Drop लोकेशन चुनें');
+      const dropAddr = document.getElementById('drop-input').value || 'Drop Location';
+
+      const bookBtn = document.getElementById('book-btn');
+      bookBtn.innerText = 'बुकिंग हो रही है...';
+      bookBtn.disabled = true;
+
+      const { data, error } = await db
+        .from('rides')
+        .insert([{
+          customer_id: currentUser.id,
+          pickup_address: 'वर्तमान GPS लोकेशन',
+          pickup_lat: pickupLat,
+          pickup_lng: pickupLng,
+          drop_address: dropAddr,
+          drop_lat: dropLat,
+          drop_lng: dropLng,
+          distance_km: calcDistance,
+          fare_amount: calcFare,
+          status: 'searching'
+        }])
+        .select()
+        .single();
+
+      bookBtn.innerText = '🚀 BOOK SM RIDE';
+      bookBtn.disabled = false;
+
+      if (error) return alert('Booking Error: ' + error.message);
+      resumeTrackingUI(data);
+    }
+
+    function resumeTrackingUI(ride) {
+      activeRide = ride;
+      document.getElementById('booking-panel').style.display = 'none';
+      document.getElementById('tracking-panel').style.display = 'block';
+      document.getElementById('ride-otp-display').innerText = activeRide.ride_otp;
+      document.getElementById('track-fare').innerText = `किराया: ₹${activeRide.fare_amount} (${activeRide.distance_km} km)`;
+
+      updateRideUI(activeRide);
+      listenToActiveRide(activeRide.id);
+    }
+
+    // 7. Realtime + Backup Sync for Active Ride & Live Captain Location
+    function listenToActiveRide(rideId) {
+      db.channel('customer:ride:' + rideId)
+        .on(
+          'postgres_changes',
+          { event: 'UPDATE', schema: 'public', table: 'rides', filter: `id=eq.${rideId}` },
+          (payload) => updateRideUI(payload.new)
+        )
+        .subscribe();
+
+      if (ridePollTimer) clearInterval(ridePollTimer);
+      ridePollTimer = setInterval(async () => {
+        if (!activeRide) return clearInterval(ridePollTimer);
+        const { data } = await db.from('rides').select('*').eq('id', rideId).maybeSingle();
+        if (data) updateRideUI(data);
+        if (activeRide && activeRide.captain_id) {
+          syncAssignedCaptainLocation(activeRide.captain_id);
+        }
+      }, 3000);
+    }
+
+    async function syncAssignedCaptainLocation(captainId) {
+      const { data } = await db.rpc('find_nearby_captains', {
+        user_lat: pickupLat,
+        user_lng: pickupLng,
+        radius_meters: 20000
+      });
+      if (!data) return;
+      const cap = data.find((c) => c.captain_id === captainId);
+      if (cap) {
+        if (liveCaptainMarker) {
+          liveCaptainMarker.setLatLng([cap.lat, cap.lng]);
+        } else {
+          captainMarkersLayer.clearLayers();
+          liveCaptainMarker = L.marker([cap.lat, cap.lng])
+            .addTo(map)
+            .bindPopup(`🏍️ आपके कैप्टन (${cap.full_name})`)
+            .openPopup();
+        }
+      }
+    }
+
+    async function updateRideUI(ride) {
+      activeRide = ride;
+      const statusEl = document.getElementById('ride-status-text');
+
+      if (ride.captain_id && document.getElementById('captain-card').style.display === 'none') {
+        const { data: capProf } = await db
+          .from('profiles')
+          .select('full_name, phone')
+          .eq('id', ride.captain_id)
+          .maybeSingle();
+        const { data: capDet } = await db
+          .from('captain_details')
+          .select('vehicle_number, bike_model')
+          .eq('captain_id', ride.captain_id)
+          .maybeSingle();
+
+        if (capProf) {
+          document.getElementById('captain-card').style.display = 'block';
+          document.getElementById('cap-name').innerText = `🏍️ ${capProf.full_name}`;
+          document.getElementById('cap-bike').innerText = `${capDet?.bike_model || 'Bike'} • ${capDet?.vehicle_number || '--'}`;
+          document.getElementById('cap-call-link').href = `tel:${capProf.phone}`;
+          syncAssignedCaptainLocation(ride.captain_id);
+        }
+      }
+
+      if (ride.status === 'searching') {
+        statusEl.innerText = '🔍 नज़दीकी कैप्टन ढूंढ रहे हैं...';
+      } else if (ride.status === 'accepted') {
+        statusEl.innerText = '✅ कैप्टन मिल गए! आपकी लोकेशन पर आ रहे हैं';
+      } else if (ride.status === 'arrived') {
+        statusEl.innerText = '📍 कैप्टन पिकअप पर पहुँच गए हैं! OTP बताएं';
+      } else if (ride.status === 'ongoing') {
+        statusEl.innerText = '🏍️ राइड शुरू हो गई है — शुभ यात्रा!';
+        document.getElementById('cancel-btn').style.display = 'none';
+      } else if (ride.status === 'completed') {
+        alert(`🎉 आप मंज़िल पर पहुँच गए! कैप्टन को ₹${ride.fare_amount} कैश/UPI दें।`);
+        resetCustomerApp();
+      } else if (ride.status === 'cancelled') {
+        resetCustomerApp();
+      }
+    }
+
+    // 8. Cancel Ride
+    async function cancelRide() {
+      if (!activeRide) return;
+      if (!confirm('क्या आप वाकई राइड कैंसिल करना चाहते हैं?')) return;
+      await db.from('rides').update({ status: 'cancelled' }).eq('id', activeRide.id);
+      resetCustomerApp();
+    }
+
+    function resetCustomerApp() {
+      activeRide = null;
+      if (ridePollTimer) clearInterval(ridePollTimer);
+      if (liveCaptainMarker) {
+        map.removeLayer(liveCaptainMarker);
+        liveCaptainMarker = null;
+      }
+      if (routeLine) {
+        map.removeLayer(routeLine);
+        routeLine = null;
+      }
+      if (dropMarker) {
+        map.removeLayer(dropMarker);
+        dropMarker = null;
+      }
+      dropLat = null;
+      dropLng = null;
+      document.getElementById('drop-input').value = '';
+      document.getElementById('fare-card').style.display = 'none';
+      document.getElementById('book-btn').style.display = 'none';
+      document.getElementById('tracking-panel').style.display = 'none';
+      document.getElementById('captain-card').style.display = 'none';
+      document.getElementById('cancel-btn').style.display = 'block';
+      document.getElementById('booking-panel').style.display = 'block';
+      loadNearbyCaptains();
+    }
+  </script>
+</body>
+</html>
